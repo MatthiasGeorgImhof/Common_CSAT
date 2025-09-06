@@ -12,6 +12,8 @@
 void checkTransfers(const CyphalTransfer transfer1, const CyphalTransfer transfer2)
 {
     CHECK(transfer1.metadata.port_id == transfer2.metadata.port_id);
+    CHECK(transfer1.metadata.remote_node_id == transfer2.metadata.remote_node_id);
+    CHECK(transfer1.metadata.port_id == transfer2.metadata.port_id);
     CHECK(transfer1.payload_size == transfer2.payload_size);
     CHECK(strncmp(static_cast<const char *>(transfer1.payload), static_cast<const char *>(transfer2.payload), transfer1.payload_size) == 0);
 }
@@ -171,11 +173,13 @@ TEST_CASE("processTransfer with LoopardAdapter")
 void *canardMemoryAllocate(CanardInstance */*ins*/, size_t amount) { return static_cast<void *>(malloc(amount)); };
 void canardMemoryFree(CanardInstance */*ins*/, void *pointer) { free(pointer); };
 
-TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
+TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter: CyphalTransferKindMessage 123: 255 to 65")
 {
     // Setup
     constexpr CyphalPortID port_id = 123;
-    constexpr CyphalPortID node_id = 11;
+    constexpr CyphalNodeID router_node_id = 170;
+    constexpr CyphalNodeID source_node_id = 62;
+    constexpr CyphalNodeID destination_node_id = 255;
 
     char buffer[4192] __attribute__((aligned(256)));
     O1HeapInstance *o1heap = o1heapInit(buffer, 4192);
@@ -188,22 +192,24 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 
     CanardAdapter canard_adapter;
     canard_adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
-    canard_adapter.ins.node_id = node_id;
+    canard_adapter.ins.node_id = router_node_id;
     canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
     Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
 
     auto adapters = std::make_tuple(loopard_cyphal, canard_cyphal);
 
     CyphalTransfer transfer;
+    constexpr char payload[] = "hello";
     transfer.metadata.priority = CyphalPriorityNominal;
     transfer.metadata.transfer_kind = CyphalTransferKindMessage;
     transfer.metadata.port_id = port_id;
-    transfer.metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
+    transfer.metadata.remote_node_id = source_node_id;
+    transfer.metadata.destination_node_id = destination_node_id;
     transfer.metadata.transfer_id = 0;
-    constexpr char payload[] = "hello";
     transfer.payload_size = sizeof(payload);
     transfer.payload = o1heapAllocate(o1heap, sizeof(payload));
     memcpy(transfer.payload, payload, sizeof(payload));
+    CyphalTransfer transfer_forwarded = transfer;
 
     ArrayList<TaskHandler, RegistrationManager::NUM_TASK_HANDLERS> handlers;
     std::shared_ptr<MockTask> task = std::make_shared<MockTask>(10, 0, transfer);
@@ -215,7 +221,7 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
     // Exercise
     O1HeapAllocator<CyphalTransfer> allocator(o1heap);
     LoopManager loop_manager(allocator);
-    bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
+    bool result = loop_manager.processTransfer(transfer_forwarded, &service_manager, adapters);
 
     // Verify processTransfer was successful
     CHECK(result == true);
@@ -233,7 +239,7 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
     checkTransfers(transfer, received_transfer_loopard);
 
     // Verify data received in CanardAdapter
-    CHECK(canard_cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 123, 100, 2000000) == 1);
+    CHECK(canard_cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, port_id, 100, 2000000) == 1);
     const CanardTxQueueItem *const const_ptr = canardTxPeek(&canard_adapter.que);
     CHECK(const_ptr != nullptr);
     CanardTxQueueItem *ptr = canardTxPop(&canard_adapter.que, const_ptr);
@@ -241,6 +247,168 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 
     CyphalTransfer received_transfer_canard;
     CHECK(canard_cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &received_transfer_canard) == 1);
+    checkTransfers(transfer, received_transfer_canard);
+
+    CHECK(task.use_count() == 2);
+}
+
+TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter: CyphalTransferKindRequest 134: 62 to 65")
+{
+    // Setup
+    constexpr CyphalPortID port_id = 134;
+    constexpr CyphalNodeID router_node_id = 170;
+    constexpr CyphalNodeID source_node_id = 62;
+    constexpr CyphalNodeID destination_node_id = 65;
+
+    char buffer[4192] __attribute__((aligned(256)));
+    O1HeapInstance *o1heap = o1heapInit(buffer, 4192);
+
+    LoopardAdapter loopard_adapter;
+    loopard_adapter.memory_allocate = loopardMemoryAllocate;
+    loopard_adapter.memory_free = loopardMemoryFree;
+
+    Cyphal<LoopardAdapter> loopard_cyphal(&loopard_adapter);
+
+    CanardAdapter canard_adapter;
+    canard_adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    canard_adapter.ins.node_id = router_node_id;
+    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
+
+    auto adapters = std::make_tuple(loopard_cyphal, canard_cyphal);
+
+    CyphalTransfer transfer;
+    constexpr char payload[] = "hello";
+    transfer.metadata.priority = CyphalPriorityNominal;
+    transfer.metadata.transfer_kind = CyphalTransferKindRequest;
+    transfer.metadata.port_id = port_id;
+    transfer.metadata.remote_node_id = source_node_id;
+    transfer.metadata.destination_node_id = destination_node_id;
+    transfer.metadata.transfer_id = 0;
+    transfer.payload_size = sizeof(payload);
+    transfer.payload = o1heapAllocate(o1heap, sizeof(payload));
+    memcpy(transfer.payload, payload, sizeof(payload));
+    CyphalTransfer transfer_forwarded = transfer;
+
+    ArrayList<TaskHandler, RegistrationManager::NUM_TASK_HANDLERS> handlers;
+    std::shared_ptr<MockTask> task = std::make_shared<MockTask>(10, 0, transfer);
+    CHECK(task.use_count() == 1);
+    handlers.push(TaskHandler{port_id, task});
+    ServiceManager service_manager(handlers);
+    CHECK(task.use_count() == 2);
+
+    // Exercise
+    O1HeapAllocator<CyphalTransfer> allocator(o1heap);
+    LoopManager loop_manager(allocator);
+    bool result = loop_manager.processTransfer(transfer_forwarded, &service_manager, adapters);
+
+    // Verify processTransfer was successful
+    CHECK(result == true);
+    CHECK(loopard_adapter.buffer.size() == 1); // Ensure the transfer was pushed to the loopard adapter's buffer
+    CHECK(canard_adapter.que.size > 0);        // Ensure a frame was queued in canard adapter
+
+    // Verify data received in LoopardAdapter
+    CyphalTransfer received_transfer_loopard;
+    size_t frame_size_loopard = 0;
+    int32_t rx_result_loopard = loopard_cyphal.cyphalRxReceive(nullptr, &frame_size_loopard, &received_transfer_loopard);
+    CHECK(rx_result_loopard == 1); //  Check if a transfer was received.
+    transfer.payload_size = sizeof(payload);
+    transfer.payload = o1heapAllocate(o1heap, sizeof(payload));
+    memcpy(transfer.payload, payload, sizeof(payload));
+    checkTransfers(transfer, received_transfer_loopard);
+
+    // Verify data received in CanardAdapter
+    canard_adapter.ins.node_id = destination_node_id;
+    CHECK(canard_cyphal.cyphalRxSubscribe(CyphalTransferKindRequest, port_id, 100, 2000000) == 1);
+    const CanardTxQueueItem *const const_ptr = canardTxPeek(&canard_adapter.que);
+    CHECK(const_ptr != nullptr);
+    CanardTxQueueItem *ptr = canardTxPop(&canard_adapter.que, const_ptr);
+    CHECK(ptr != nullptr);
+
+    CyphalTransfer received_transfer_canard;
+    auto res = canard_cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &received_transfer_canard);
+    CHECK(res == 1);
+    checkTransfers(transfer, received_transfer_canard);
+
+    CHECK(task.use_count() == 2);
+}
+
+TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter: CyphalTransferKindResponse 145: 62 to 65")
+{
+    // Setup
+    constexpr CyphalPortID port_id = 145;
+    constexpr CyphalNodeID router_node_id = 170;
+    constexpr CyphalNodeID source_node_id = 62;
+    constexpr CyphalNodeID destination_node_id = 65;
+
+    char buffer[4192] __attribute__((aligned(256)));
+    O1HeapInstance *o1heap = o1heapInit(buffer, 4192);
+
+    LoopardAdapter loopard_adapter;
+    loopard_adapter.memory_allocate = loopardMemoryAllocate;
+    loopard_adapter.memory_free = loopardMemoryFree;
+
+    Cyphal<LoopardAdapter> loopard_cyphal(&loopard_adapter);
+
+    CanardAdapter canard_adapter;
+    canard_adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    canard_adapter.ins.node_id = router_node_id;
+    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
+
+    auto adapters = std::make_tuple(loopard_cyphal, canard_cyphal);
+
+    CyphalTransfer transfer;
+    constexpr char payload[] = "hello";
+    transfer.metadata.priority = CyphalPriorityNominal;
+    transfer.metadata.transfer_kind = CyphalTransferKindResponse;
+    transfer.metadata.port_id = port_id;
+    transfer.metadata.remote_node_id = source_node_id;
+    transfer.metadata.destination_node_id = destination_node_id;
+    transfer.metadata.transfer_id = 0;
+    transfer.payload_size = sizeof(payload);
+    transfer.payload = o1heapAllocate(o1heap, sizeof(payload));
+    memcpy(transfer.payload, payload, sizeof(payload));
+    CyphalTransfer transfer_forwarded = transfer;
+
+    ArrayList<TaskHandler, RegistrationManager::NUM_TASK_HANDLERS> handlers;
+    std::shared_ptr<MockTask> task = std::make_shared<MockTask>(10, 0, transfer);
+    CHECK(task.use_count() == 1);
+    handlers.push(TaskHandler{port_id, task});
+    ServiceManager service_manager(handlers);
+    CHECK(task.use_count() == 2);
+
+    // Exercise
+    O1HeapAllocator<CyphalTransfer> allocator(o1heap);
+    LoopManager loop_manager(allocator);
+    bool result = loop_manager.processTransfer(transfer_forwarded, &service_manager, adapters);
+
+    // Verify processTransfer was successful
+    CHECK(result == true);
+    CHECK(loopard_adapter.buffer.size() == 1); // Ensure the transfer was pushed to the loopard adapter's buffer
+    CHECK(canard_adapter.que.size > 0);        // Ensure a frame was queued in canard adapter
+
+    // Verify data received in LoopardAdapter
+    CyphalTransfer received_transfer_loopard;
+    size_t frame_size_loopard = 0;
+    int32_t rx_result_loopard = loopard_cyphal.cyphalRxReceive(nullptr, &frame_size_loopard, &received_transfer_loopard);
+    CHECK(rx_result_loopard == 1); //  Check if a transfer was received.
+    transfer.payload_size = sizeof(payload);
+    transfer.payload = o1heapAllocate(o1heap, sizeof(payload));
+    memcpy(transfer.payload, payload, sizeof(payload));
+    checkTransfers(transfer, received_transfer_loopard);
+
+    // Verify data received in CanardAdapter
+    canard_adapter.ins.node_id = destination_node_id;
+    CHECK(canard_cyphal.cyphalRxSubscribe(CyphalTransferKindResponse, port_id, 100, 2000000) == 1);
+    const CanardTxQueueItem *const const_ptr = canardTxPeek(&canard_adapter.que);
+    CHECK(const_ptr != nullptr);
+    CanardTxQueueItem *ptr = canardTxPop(&canard_adapter.que, const_ptr);
+    CHECK(ptr != nullptr);
+
+    CyphalTransfer received_transfer_canard;
+    auto res = canard_cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &received_transfer_canard);
+    CHECK(res == 1);
     checkTransfers(transfer, received_transfer_canard);
 
     CHECK(task.use_count() == 2);

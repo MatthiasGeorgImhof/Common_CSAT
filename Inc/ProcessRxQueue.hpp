@@ -51,13 +51,19 @@ public:
     	std::shared_ptr<CyphalTransfer> transfer_ptr = std::allocate_shared<CyphalTransfer>(allocator_, transfer);
         service_manager->handleMessage(transfer_ptr);
 
+        CyphalNodeID source_node_id = transfer.metadata.remote_node_id;
+        CyphalNodeID destination_node_id = transfer.metadata.destination_node_id;
+        transfer.metadata.remote_node_id = transfer.metadata.destination_node_id;       
+        transfer.metadata.destination_node_id = source_node_id;       
+        ++transfer.metadata.transfer_id;
+
         bool all_successful = true;
         std::apply([&](auto &...adapter)
                    { ([&]()
                       {
-            CyphalNodeID remote_node_id = transfer.metadata.remote_node_id;
-            transfer.metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;       
-            int32_t res = adapter.cyphalTxForward(static_cast<CyphalMicrosecond>(0), &transfer.metadata, transfer.payload_size, transfer.payload, remote_node_id);
+            transfer.metadata.remote_node_id = destination_node_id;
+            transfer.metadata.destination_node_id = 0;
+            int32_t res = adapter.cyphalTxForward(static_cast<CyphalMicrosecond>(0), &transfer.metadata, transfer.payload_size, transfer.payload, source_node_id);
             all_successful = all_successful && (res > 0); }(), ...); }, adapters);
         return all_successful; // Return success status
     }

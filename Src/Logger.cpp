@@ -81,7 +81,7 @@ void Logger::can_transmit_log_message(const char *str, size_t size, uint8_t leve
             static_cast<CyphalPriority>(LOG_LEVEL_ALERT - level),
             CyphalTransferKindMessage,
             uavcan_diagnostic_Record_1_1_FIXED_PORT_ID_,
-            CYPHAL_NODE_ID_UNSET,
+            CYPHAL_NODE_ID_UNSET, 0, 
             cyphal_transfer_id_,
         };
 

@@ -83,7 +83,8 @@ TEST_CASE("TaskRegisterServer Tests")
         REQUIRE(loopard.buffer.size() == 0);
         std::shared_ptr<CyphalTransfer> request = std::make_shared<CyphalTransfer>(createTransfer(payload_size, payload, &access_request,
                                                                                                   reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_register_Access_Request_1_0_serialize_),
-                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, static_cast<CyphalNodeID>(11)));
+                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, 
+                                                                                                  static_cast<CyphalNodeID>(11), static_cast<CyphalNodeID>(CYPHAL_NODE_ID_UNSET), 1));
         task_register_server.handleMessage(request);
         task_register_server.handleTaskImpl();
         REQUIRE(loopard.buffer.size() == 1);
@@ -110,7 +111,8 @@ TEST_CASE("TaskRegisterServer Tests")
         REQUIRE(loopard.buffer.size() == 0);
         std::shared_ptr<CyphalTransfer> request = std::make_shared<CyphalTransfer>(createTransfer(payload_size, payload, &access_request,
                                                                                                   reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_register_Access_Request_1_0_serialize_),
-                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, static_cast<CyphalNodeID>(11)));
+                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, 
+                                                                                                  static_cast<CyphalNodeID>(11), static_cast<CyphalNodeID>(CYPHAL_NODE_ID_UNSET), 1));
         task_register_server.handleMessage(request);
         task_register_server.handleTaskImpl();
         REQUIRE(loopard.buffer.size() == 1);
@@ -137,7 +139,8 @@ TEST_CASE("TaskRegisterServer Tests")
         REQUIRE(loopard.buffer.size() == 0);
         std::shared_ptr<CyphalTransfer> request = std::make_shared<CyphalTransfer>(createTransfer(payload_size, payload, &access_request,
                                                                                                   reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_register_Access_Request_1_0_serialize_),
-                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, static_cast<CyphalNodeID>(11)));
+                                                                                                  uavcan_register_Access_1_0_FIXED_PORT_ID_, CyphalTransferKindRequest, 
+                                                                                                  static_cast<CyphalNodeID>(11), static_cast<CyphalNodeID>(CYPHAL_NODE_ID_UNSET), 1));
         task_register_server.handleMessage(request);
         task_register_server.handleTaskImpl();
         REQUIRE(loopard.buffer.size() == 1);

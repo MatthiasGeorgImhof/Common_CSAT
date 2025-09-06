@@ -31,6 +31,7 @@ inline SerardTransferMetadata cyphalMetadataToSerard(const CyphalTransferMetadat
         static_cast<SerardTransferKind>(metadata.transfer_kind),
         static_cast<SerardPortID>(metadata.port_id),
         cyphalNodeIdToSerard(metadata.remote_node_id),
+        cyphalNodeIdToSerard(metadata.destination_node_id),
         cyphalTransferIdToSerard(metadata.transfer_id)};
 }
 
@@ -41,6 +42,7 @@ inline CyphalTransferMetadata serardMetadataToCyphal(const SerardTransferMetadat
         static_cast<CyphalTransferKind>(metadata.transfer_kind),
         static_cast<CyphalPortID>(metadata.port_id),
         serardNodeIdToCyphal(metadata.remote_node_id),
+        serardNodeIdToCyphal(metadata.destination_node_id),
         serardTransferIdToCyphal(metadata.transfer_id)};
 }
 
@@ -50,6 +52,7 @@ inline void cyphalMetadataToSerard(const CyphalTransferMetadata *cyphal, SerardT
     serard->transfer_kind = static_cast<SerardTransferKind>(cyphal->transfer_kind);
     serard->port_id = static_cast<SerardPortID>(cyphal->port_id);
     serard->remote_node_id = cyphalNodeIdToSerard(cyphal->remote_node_id);
+    serard->destination_node_id = cyphalNodeIdToSerard(cyphal->destination_node_id);
     serard->transfer_id = cyphalTransferIdToSerard(cyphal->transfer_id);
 }
 
@@ -67,6 +70,7 @@ inline void serardMetadataToCyphal(const SerardTransferMetadata *serard, CyphalT
     cyphal->transfer_kind = static_cast<CyphalTransferKind>(serard->transfer_kind);
     cyphal->port_id = serard->port_id;
     cyphal->remote_node_id = serardNodeIdToCyphal(serard->remote_node_id);
+    cyphal->destination_node_id = serardNodeIdToCyphal(serard->destination_node_id);
     cyphal->transfer_id = serardTransferIdToCyphal(serard->transfer_id);
 }
 

@@ -77,7 +77,7 @@ TEST_CASE("ServiceManager: Handle Message") {
         CyphalPriorityNominal,
         CyphalTransferKindMessage,
         100, // Matching port ID
-        CYPHAL_NODE_ID_UNSET,
+        CYPHAL_NODE_ID_UNSET, 0, 
         1,
     };
     auto transfer = std::make_shared<CyphalTransfer>();
@@ -97,7 +97,7 @@ TEST_CASE("ServiceManager: Handle Message") {
         CyphalPriorityNominal,
         CyphalTransferKindMessage,
         200, // Matching port ID
-        CYPHAL_NODE_ID_UNSET,
+        CYPHAL_NODE_ID_UNSET, 0, 
         1,
     };
     auto transfer2 = std::make_shared<CyphalTransfer>();
@@ -117,7 +117,7 @@ TEST_CASE("ServiceManager: Handle Message") {
         CyphalPriorityNominal,
         CyphalTransferKindMessage,
         300, // Matching port ID
-        CYPHAL_NODE_ID_UNSET,
+        CYPHAL_NODE_ID_UNSET, 0, 
         1,
     };
     auto transfer3 = std::make_shared<CyphalTransfer>();

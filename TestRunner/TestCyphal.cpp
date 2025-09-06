@@ -280,7 +280,7 @@ TEST_CASE("Serard Basics")
             SerardPriorityNominal,
             SerardTransferKindMessage,
             123,
-            SERARD_NODE_ID_UNSET,
+            SERARD_NODE_ID_UNSET, 0, 
             11};
         SerardTransferMetadata translated = cyphalMetadataToSerard(serardMetadataToCyphal(metadata));
         CHECK((metadata.priority == translated.priority && metadata.transfer_kind == translated.transfer_kind && metadata.port_id == translated.port_id && metadata.remote_node_id == translated.remote_node_id && metadata.transfer_id == translated.transfer_id));
@@ -291,7 +291,7 @@ TEST_CASE("Serard Basics")
             CyphalPriorityNominal,
             CyphalTransferKindMessage,
             123,
-            CYPHAL_NODE_ID_UNSET,
+            CYPHAL_NODE_ID_UNSET, 0,
             11};
         CyphalTransferMetadata translated = serardMetadataToCyphal(cyphalMetadataToSerard(metadata));
         CHECK((metadata.priority == translated.priority && metadata.transfer_kind == translated.transfer_kind && metadata.port_id == translated.port_id && metadata.remote_node_id == translated.remote_node_id && metadata.transfer_id == translated.transfer_id));

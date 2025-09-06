@@ -15,14 +15,14 @@ CyphalTransfer createTransfer(size_t payload_size, uint8_t *payload, void *data,
 
 CyphalTransfer createTransfer(size_t payload_size, uint8_t *payload, void *data,
                               int8_t (*serialize)(const void *const, uint8_t *const, size_t *const),
-                              CyphalPortID port_id, CyphalTransferKind transfer_kind, CyphalNodeID node_id, CyphalTransferID transfer_id)
+                              CyphalPortID port_id, CyphalTransferKind transfer_kind, CyphalNodeID node_id, CyphalNodeID destination_id, CyphalTransferID transfer_id)
 {
     CyphalTransferMetadata metadata =
         {
             CyphalPriorityNominal,
             static_cast<CyphalTransferKind>(transfer_kind), // Use the transfer_kind argument
             port_id,
-            node_id,
+            node_id, destination_id,
             transfer_id,
         };
 

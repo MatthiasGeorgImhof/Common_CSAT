@@ -16,7 +16,7 @@ INCLUDE_PATHS = -I ../Inc \
 				-I ../3rdParty/SGP4
 
 LIBS_PATH =			-L $(HOME)/Data/github/can/lib_x86_64
-LIBS =				-lcanardd -lserardd -ludpardd -lo1heapd
+LIBS =				-lcanardxx -lserardxx -ludpardxx -lo1heapd
 
 # Source and object files
 TEST_FILES = TestArrayList.cpp \

@@ -42,6 +42,7 @@ typedef struct
     CyphalTransferKind transfer_kind;
     CyphalPortID port_id;
     CyphalNodeID remote_node_id;
+    CyphalNodeID destination_node_id;
     CyphalTransferID transfer_id;
 } CyphalTransferMetadata;
 
@@ -69,9 +70,9 @@ CyphalTransfer createTransfer(size_t payload_size, uint8_t *payload, void *data,
 CyphalTransfer createTransfer(size_t payload_size, uint8_t *payload, void *data,
                               int8_t (*serialize)(const void *const, uint8_t *const, size_t *const),
                               CyphalPortID port_id,
-                              CyphalTransferKind transfer_kind = CyphalTransferKindMessage,
-                              CyphalNodeID node_id = CYPHAL_NODE_ID_UNSET,
-                              CyphalTransferID transfer_id = 0);
+                              CyphalTransferKind transfer_kind,
+                              CyphalNodeID node_id, CyphalNodeID destination_node_id,
+                              CyphalTransferID transfer_id);
 
 void unpackTransfer(const CyphalTransfer *transfer, int8_t (*deserialize)(uint8_t *data, const uint8_t *payload, size_t *payload_size), uint8_t *data);
 
