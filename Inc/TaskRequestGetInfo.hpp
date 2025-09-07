@@ -55,7 +55,7 @@ void TaskRequestGetInfo<Adapters...>::handleTaskImpl()
         
         if (transfer->metadata.transfer_kind != CyphalTransferKindResponse)
         {
-            log(LOG_LEVEL_ERROR, "TaskRequestGetInfo: Expected Response transfer kind\r\n");
+            log(LOG_LEVEL_ERROR, "TaskRequestGetInfo: Expected Response transfer kind: %d \r\n", transfer->metadata.transfer_kind);
             return;
         }
 
