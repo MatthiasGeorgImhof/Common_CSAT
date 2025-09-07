@@ -38,7 +38,7 @@ void TaskRequestGetInfo<Adapters...>::handleTaskImpl()
         TaskForClient<Adapters...>::publish(PAYLOAD_SIZE, payload, &data,
                                             reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_node_GetInfo_Request_1_0_serialize_),
                                             uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, TaskRequestGetInfo<Adapters...>::node_id_);
-        log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: sent request\r\n");
+        log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: sent request: %d \r\n", TaskRequestGetInfo<Adapters...>::node_id_);
 
         return;
     }
@@ -49,7 +49,7 @@ void TaskRequestGetInfo<Adapters...>::handleTaskImpl()
         std::shared_ptr<CyphalTransfer> transfer = TaskForClient<Adapters...>::buffer_.pop();
         if (transfer->metadata.remote_node_id != TaskRequestGetInfo<Adapters...>::node_id_)
         {
-            log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: Unexpected Node ID\r\n");
+            log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: Unexpected Node ID: %d %d \r\n", TaskRequestGetInfo<Adapters...>::node_id_, transfer->metadata.remote_node_id);
             return;
         }
         
@@ -69,7 +69,7 @@ void TaskRequestGetInfo<Adapters...>::handleTaskImpl()
             return;
         }
 
-        log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: received response\r\n");
+        log(LOG_LEVEL_DEBUG, "TaskRequestGetInfo: received response: %d %d \r\n", TaskRequestGetInfo<Adapters...>::node_id_, transfer->metadata.remote_node_id);
     }
 }
 
