@@ -37,13 +37,15 @@ void TaskRespondGetInfo<Adapters...>::handleTaskImpl()
         return;
     }
 
-    log(LOG_LEVEL_INFO, "TaskRespondGetInfo: received request\r\n");
     size_t count = TaskForServer<Adapters...>::buffer_.size();
     for (size_t i = 0; i < count; ++i)
     {
         std::shared_ptr<CyphalTransfer> transfer = TaskForServer<Adapters...>::buffer_.pop();
         if (transfer->metadata.transfer_kind != CyphalTransferKindRequest)
+        {
+            log(LOG_LEVEL_ERROR, "TaskRequestGetInfo: Expected Request transfer kind: %d \r\n", transfer->metadata.transfer_kind);
             return;
+        }
 
         uavcan_node_GetInfo_Response_1_0 data = {
             .protocol_version = {uavcan_node_Version_1_0{.major = 1, .minor = 0}},
