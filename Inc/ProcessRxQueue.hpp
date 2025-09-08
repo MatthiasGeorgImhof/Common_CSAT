@@ -55,7 +55,6 @@ public:
         CyphalNodeID destination_node_id = transfer.metadata.destination_node_id;
         transfer.metadata.remote_node_id = transfer.metadata.destination_node_id;       
         transfer.metadata.destination_node_id = source_node_id;       
-        ++transfer.metadata.transfer_id;
 
         bool all_successful = true;
         std::apply([&](auto &...adapter)
