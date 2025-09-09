@@ -31,7 +31,7 @@ void TaskSubscribeNodePortList<Adapters...>::handleTaskImpl()
 {
     if (buffer_.is_empty())
     {
-        log(LOG_LEVEL_TRACE, "TaskSubscribeNodePortList: empty buffer\r\n");
+        log(LOG_LEVEL_DEBUG, "TaskSubscribeNodePortList: empty buffer\r\n");
         return;
     }
 

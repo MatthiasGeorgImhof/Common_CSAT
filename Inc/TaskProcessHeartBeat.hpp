@@ -22,7 +22,7 @@ class TaskProcessHeartBeat : public TaskFromBuffer
 {
 public:
     TaskProcessHeartBeat() = delete;
-    TaskProcessHeartBeat(uint32_t interval, uint32_t tick) : Task(interval, tick, std::tuple<Adapters...>& adapters) : TaskFromBuffer(interval, tick), adapters_(adapters) {}
+    TaskProcessHeartBeat(uint32_t interval, uint32_t tick, std::tuple<Adapters...>& adapters) : TaskFromBuffer(interval, tick), adapters_(adapters) {}
 
     virtual void registerTask(RegistrationManager *manager, std::shared_ptr<Task> task) override;
     virtual void unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task) override;
@@ -32,19 +32,20 @@ private:
     std::tuple<Adapters...>& adapters_;
 };
 
-void TaskProcessHeartBeat::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename... Adapters>
+void TaskProcessHeartBeat<Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->subscribe(uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, task);
 }
 
-void TaskProcessHeartBeat::handleTaskImpl() {}
-
-void TaskProcessHeartBeat::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename... Adapters>
+void TaskProcessHeartBeat<Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->unsubscribe(uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, task);
 }
 
-void TaskProcessHeartBeat::handleTaskImpl()
+template <typename... Adapters>
+void TaskProcessHeartBeat<Adapters...>::handleTaskImpl()
 {
     // Process all transfers in the buffer
 	size_t count = buffer_.size();
@@ -53,7 +54,6 @@ void TaskProcessHeartBeat::handleTaskImpl()
         std::shared_ptr<CyphalTransfer> transfer = buffer_.pop();
         size_t payload_size = transfer->payload_size;
         uavcan_node_Heartbeat_1_0 heart_beat;
-        size_t payload_size = uavcan_node_Heartbeat_1_0_EXTENT_BYTES_;
         uavcan_node_Heartbeat_1_0_deserialize_(&heart_beat, (const uint8_t *) transfer->payload, &payload_size);
 		log(LOG_LEVEL_DEBUG, "TaskProcessHeartBeat %d: %d\r\n", transfer->metadata.remote_node_id, heart_beat.uptime);
     }
