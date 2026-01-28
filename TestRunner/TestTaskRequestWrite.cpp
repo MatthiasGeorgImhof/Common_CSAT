@@ -143,8 +143,8 @@ template <typename ImageInputStream, typename... Adapters>
 class MockTaskRequestWrite : public TaskRequestWrite<ImageInputStream, Adapters...>
 {
 public:
-    MockTaskRequestWrite(ImageInputStream &metadata_producer, uint32_t interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters)
-        : TaskRequestWrite<ImageInputStream, Adapters...>(metadata_producer, interval, tick, node_id, transfer_id, adapters)
+    MockTaskRequestWrite(ImageInputStream &metadata_producer, uint32_t sleep_interval, uint32_t operate_interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters)
+        : TaskRequestWrite<ImageInputStream, Adapters...>(metadata_producer, sleep_interval, operate_interval, tick, node_id, transfer_id, adapters)
     {
     }
 
@@ -200,7 +200,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     uint32_t interval = 1000;
 
     // Instantiate the TaskRequestWrite
-    MockTaskRequestWrite task(mock_stream, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
@@ -303,7 +303,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     uint32_t interval = 1000;
 
     // Instantiate the TaskRequestWrite
-    MockTaskRequestWrite task(mock_stream, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
@@ -458,7 +458,7 @@ TEST_CASE("TaskRequestWrite: Registers and Unregisters correctly") {
     RegistrationManager registration_manager;
 
     // Instantiate the TaskRequestWrite
-    auto task = std::make_shared<MockTaskRequestWrite<MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>>(mock_stream, interval, tick, node_id, transfer_id, adapters);
+    auto task = std::make_shared<MockTaskRequestWrite<MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>>(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
 
     // Initial state
     CHECK(registration_manager.getClients().size() == 0);

@@ -134,7 +134,7 @@ TEST_CASE("TaskMLX90640 basic state progression")
         trig,
         MLXMode::OneShot,
         1,      // burst count
-        0, 0    // interval, tick
+        0, 0, 0    // sleep_interval, operate_interval, tick
     );
 
     mgr.add(task);
@@ -170,7 +170,7 @@ TEST_CASE("TaskMLX90640 OneShot mode produces exactly one frame")
         trig,
         MLXMode::OneShot,
         1,      // burst count
-        0, 0
+        0, 0, 0   // sleep_interval, operate_interval, tick
     );
 
     mgr.add(task);
@@ -204,7 +204,7 @@ TEST_CASE("TaskMLX90640 Burst mode produces N frames")
         trig,
         MLXMode::Burst,
         N,      // burst count
-        0, 0
+        0, 0, 0   // sleep_interval, operate_interval, tick
     );
 
     mgr.add(task);
@@ -239,7 +239,7 @@ TEST_CASE("TaskMLX90640 with MockTriggerAlways produces multiple cycles")
         trig,              // <-- always returns true
         MLXMode::OneShot,
         1,                 // burstCount (ignored in OneShot)
-        0, 0
+        0, 0, 0    // sleep_interval, operate_interval, tick
     );
 
     mgr.add(task);

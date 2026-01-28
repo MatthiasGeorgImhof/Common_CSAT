@@ -115,8 +115,8 @@ template <typename ImageInputStream, typename... Adapters>
 class MockTaskRequestWrite : public TaskRequestWrite<ImageInputStream, Adapters...>
 {
 public:
-    MockTaskRequestWrite(ImageInputStream &metadata_producer, uint32_t interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters)
-        : TaskRequestWrite<ImageInputStream, Adapters...>(metadata_producer, interval, tick, node_id, transfer_id, adapters)
+    MockTaskRequestWrite(ImageInputStream &metadata_producer, uint32_t sleep_interval, uint32_t operate_interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters)
+        : TaskRequestWrite<ImageInputStream, Adapters...>(metadata_producer, sleep_interval, operate_interval, tick, node_id, transfer_id, adapters)
     {
     }
 
@@ -184,7 +184,7 @@ TEST_CASE("TaskRequestWrite - TaskRequestWrite: Handles small write")
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
-    MockTaskRequestWrite task_request(mock_stream, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task_request(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
     MockTaskRespondWrite task_response(output, interval, tick, adapters);
 
     // Prepare test data and metadata
@@ -280,7 +280,7 @@ TEST_CASE("TaskRequestWrite - TaskRequestWrite: Handles large write")
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
-    MockTaskRequestWrite task_request(mock_stream, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task_request(mock_stream, interval, interval,tick, node_id, transfer_id, adapters);
     MockTaskRespondWrite task_response(output, interval, tick, adapters);
 
     // Prepare test data and metadata

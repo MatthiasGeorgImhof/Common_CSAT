@@ -53,12 +53,12 @@ enum class MLXMode : uint8_t
 // TaskMLX90640
 // ─────────────────────────────────────────────
 template <typename PowerSwitchT, typename MLXT, typename ImageBufferT, typename TriggerT = OnceTrigger>
-class TaskMLX90640 : public Task
+class TaskMLX90640 : public Task, private TaskPacing
 {
 public:
     TaskMLX90640(PowerSwitchT &pwr, CIRCUITS circuit, MLXT &mlx, ImageBufferT &buffer, TriggerT &trigger,
-                 MLXMode mode, uint32_t burstCount, uint32_t interval, uint32_t tick)
-        : Task(interval, tick),
+                 MLXMode mode, uint32_t burstCount, uint32_t sleep_interval, uint32_t operate_interval, uint32_t tick)
+        : Task(sleep_interval, tick), TaskPacing(sleep_interval, operate_interval),
           power_(pwr),
           circuit_(circuit),
           sensor_(mlx),
@@ -200,6 +200,7 @@ private:
         if (sensor_.wakeUp(REFRESH_RATE))
         {
             state_ = MLXState::WaitCompleteFrame;
+            TaskPacing::operate(*this);
             t0_ = HAL_GetTick();
         }
         else
@@ -346,6 +347,7 @@ private:
     {
         sensor_.sleep();
         state_ = MLXState::PoweringOff;
+        TaskPacing::sleep(*this);
     }
 
     void statePoweringOff()

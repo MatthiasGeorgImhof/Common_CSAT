@@ -65,12 +65,13 @@ public:
     using State = typename Base::State;
 
     MockTaskRequestWrite(InputStream& stream,
-                         uint32_t interval,
+                         uint32_t sleep_interval,
+                         uint32_t operate_interval,
                          uint32_t tick,
                          CyphalNodeID node_id,
                          CyphalTransferID transfer_id,
                          std::tuple<Adapters...>& adapters)
-        : Base(stream, interval, tick, node_id, transfer_id, adapters)
+        : Base(stream, sleep_interval, operate_interval, tick, node_id, transfer_id, adapters)
     {}
 
     State getState() const { return this->state_; }
@@ -143,7 +144,8 @@ TEST_CASE("TaskRequestWrite end-to-end with TrivialImageBuffer")
 
     // 4. Writer task
     Writer writer(stream,
-                  /*interval*/ 0,
+                  /*sleep_interval*/ 0,
+                  /*operate_interval*/ 0,
                   /*tick*/ 0,
                   /*node_id*/ 42,
                   /*transfer_id*/ 7,
@@ -276,7 +278,8 @@ TEST_CASE("Full pipeline: MockTaskMLX90640 → TrivialImageBuffer → ImageInput
 
     // 5. Writer task
     Writer writer(stream,
-                  /*interval*/ 0,
+                  /*sleep_interval*/ 0,
+                  /*operate_interval*/ 0,
                   /*tick*/ 0,
                   /*node_id*/ 42,
                   /*transfer_id*/ 7,
