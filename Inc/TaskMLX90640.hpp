@@ -9,8 +9,7 @@
 #include "MLX90640.hpp"
 #include "PowerSwitch.hpp"
 #include "RegistrationManager.hpp"
-#include "imagebuffer/metadata.hpp"
-#include "ImageBuffer.hpp"
+#include "ImageBufferConcept.hpp"
 #include "Trigger.hpp"
 
 // ─────────────────────────────────────────────
@@ -52,7 +51,7 @@ enum class MLXMode : uint8_t
 // ─────────────────────────────────────────────
 // TaskMLX90640
 // ─────────────────────────────────────────────
-template <typename PowerSwitchT, typename MLXT, typename ImageBufferT, typename TriggerT = OnceTrigger>
+template <typename PowerSwitchT, typename MLXT, ImageBufferConcept ImageBufferT, typename TriggerT = OnceTrigger>
 class TaskMLX90640 : public Task, private TaskPacing
 {
 public:
