@@ -44,3 +44,7 @@ void CanTxQueueDrainer::irq_safe_drain()
 	drain();
 //	CanTxIrqLock::unlock();
 }
+
+// #ifdef __x86_64__
+// CanTxQueueDrainer tx_drainer;
+// #endif // __x86_64__
