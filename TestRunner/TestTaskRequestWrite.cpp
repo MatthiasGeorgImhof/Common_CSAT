@@ -164,25 +164,33 @@ private:
 };
 
 // Helper function to create a Write Response
-std::shared_ptr<CyphalTransfer> createWriteResponse(uint16_t error_code)
+std::shared_ptr<CyphalTransfer> createWriteResponse(uint16_t error_code,
+                                                    CyphalTransferID expected_tid)
 {
-    uavcan_file_Write_Response_1_1 response;
+    uavcan_file_Write_Response_1_1 response{};
     response._error.value = error_code;
 
-    constexpr size_t PAYLOAD_SIZE = uavcan_file_Write_Response_1_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    constexpr size_t PAYLOAD_SIZE =
+        uavcan_file_Write_Response_1_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t payload[PAYLOAD_SIZE];
     size_t payload_size = PAYLOAD_SIZE;
 
-    int8_t serialization_result = uavcan_file_Write_Response_1_1_serialize_(&response, payload, &payload_size);
+    int8_t serialization_result =
+        uavcan_file_Write_Response_1_1_serialize_(&response, payload, &payload_size);
     REQUIRE(serialization_result >= 0);
 
     auto transfer = std::make_shared<CyphalTransfer>();
+
     transfer->metadata.transfer_kind = CyphalTransferKindResponse;
     transfer->metadata.port_id = uavcan_file_Write_1_1_FIXED_PORT_ID_;
-    transfer->metadata.remote_node_id = 123; // Some dummy node ID
-    transfer->metadata.transfer_id = 0;      // Dummy Transfer ID
+    transfer->metadata.remote_node_id = 42; // or whatever the server node-ID is
+    transfer->metadata.priority = CyphalPriorityNominal;
+
+    // *** CRITICAL ***
+    transfer->metadata.transfer_id = expected_tid;
+
     transfer->payload_size = payload_size;
-    transfer->payload = malloc(payload_size); // Use malloc directly for simplicity
+    transfer->payload = malloc(payload_size);
     std::memcpy(transfer->payload, payload, payload_size);
 
     return transfer;
@@ -290,7 +298,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Second Task Execution: Sends the data
 
-    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -312,7 +320,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Third Task Execution: Sends Null
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -333,7 +341,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Fourth Task Execution: Receive OK
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -400,7 +408,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     free(transfer.payload);
     loopard.buffer.clear();
 
-    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR);
+    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -421,7 +429,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Second Task Execution: Sends the data
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK , transfer.metadata.transfer_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -441,7 +449,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     free(transfer.payload);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -463,7 +471,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Third Task Execution: Sends Null
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -482,7 +490,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     free(transfer.payload);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -503,7 +511,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Third Task Execution: Receive OK
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -511,7 +519,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     CHECK(task.buffer_.size() == 0);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
