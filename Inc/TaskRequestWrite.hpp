@@ -100,7 +100,13 @@ protected:
 template <InputStreamConcept InputStream, typename... Adapters>
 void TaskRequestWrite<InputStream, Adapters...>::reset()
 {
-    write_state_ = WriteState{IDLE, 0, 0, 0, 0};
+    while (!TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty()) 
+    {
+        TaskForClient<CyphalBuffer8, Adapters...>::buffer_.pop();
+    }
+    
+    this->transfer_id_ = static_cast<CyphalTransferID>((this->transfer_id_ + 1) & 0x1f);
+    write_state_ = WriteState{IDLE, 0, 0, static_cast<CyphalTransferID>((this->transfer_id_ - 1) & 0x1f), 0};
 
     name_ = {};
     TaskPacing::sleep(*this);
