@@ -119,18 +119,20 @@ TEST_FILES = TestAccessorEraseAndFormat.cpp \
 			 TestTrigger.cpp \
 			 TestTrivialImageBuffer.cpp \
 			 TestWMMLegendre.cpp \
-			 TestWMMModel.cpp \
-				   Test_hal_can.cpp \
-				   Test_hal_clock.cpp \
-				   Test_hal_dcmi.cpp \
-				   Test_hal_gpio.cpp \
-				   Test_hal_i2c.cpp \
-				   Test_hal_irq.cpp \
-				   Test_hal_spi.cpp \
-				   Test_hal_timer.cpp \
-				   Test_hal_uart.cpp \
-				   Test_hal_usb.cpp \
-				   Test_hal_misc.cpp 
+			 TestWMMModel.cpp
+
+# HAL Test Files
+HAL_TEST_FILES =   tests/test_hal_can.cpp \
+				   tests/test_hal_clock.cpp \
+				   tests/test_hal_dcmi.cpp \
+				   tests/test_hal_gpio.cpp \
+				   tests/test_hal_i2c.cpp \
+				   tests/test_hal_irq.cpp \
+				   tests/test_hal_spi.cpp \
+				   tests/test_hal_timer.cpp \
+				   tests/test_hal_uart.cpp \
+				   tests/test_hal_usb.cpp \
+				   tests/test_hal_misc.cpp 
 
 SRC_FILES = ../Src/coordiate_transformations.cpp \
 			../Src/coordiate_rotators.cpp \
@@ -185,6 +187,7 @@ SRC_OBJECTS = $(addprefix $(BIN_DIR)/, $(SRC_FILES:.cpp=.o))
 MOCK_HAL_SRC_DIRS = $(dir $(MOCK_HAL_SRC_FILES))
 MOCK_HAL_OBJECTS = $(addprefix $(BIN_DIR)/, $(MOCK_HAL_SRC_FILES:../Src/%.c=%.o))
 
+
 # Executables
 EXECUTABLES = $(addprefix $(BIN_DIR)/,$(TEST_NAMES))
 
@@ -203,6 +206,7 @@ nunavut:
 # Create the bin directory
 create_bin_dir:
 	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(BIN_DIR)/tests
 	@mkdir -p $(BIN_DIR)/mock_hal
 
 # Compile C source files mock_hal_*.c
@@ -215,94 +219,19 @@ $(BIN_DIR)/mock_hal/%.o : ../Src/mock_hal/%.c
 	@echo "Compiling $<"
 	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $(BIN_DIR)/mock_hal/$(notdir $@)
 
-# Rule for TestMockHals with extra sources
-$(BIN_DIR)/Test_hal_can.o : Test_hal_can.cpp
+# Compile the HAL test sources
+$(BIN_DIR)/%.o: tests/%.cpp
 	@echo "Compiling $<"
 	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/Test_hal_can : $(BIN_DIR)/Test_hal_can.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_can.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_clock.o : Test_hal_clock.cpp
+# Rule for TestMockHal with extra sources
+$(BIN_DIR)/TestMockHal.o : TestMockHal.cpp
 	@echo "Compiling $<"
 	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/Test_hal_clock : $(BIN_DIR)/Test_hal_clock.o $(MOCK_HAL_OBJECTS)
+$(BIN_DIR)/TestMockHal : $(BIN_DIR)/TestMockHal.o $(TEST_HAL_OBJECTS) $(MOCK_HAL_OBJECTS)
 	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_clock.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_dcmi.o : Test_hal_dcmi.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_dcmi : $(BIN_DIR)/Test_hal_dcmi.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_dcmi.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_gpio.o : Test_hal_gpio.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_gpio : $(BIN_DIR)/Test_hal_gpio.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_gpio.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_i2c.o : Test_hal_i2c.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_i2c : $(BIN_DIR)/Test_hal_i2c.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_i2c.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_irq.o : Test_hal_irq.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_irq : $(BIN_DIR)/Test_hal_irq.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_irq.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_misc.o : Test_hal_misc.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_misc : $(BIN_DIR)/Test_hal_misc.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_misc.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_spi.o : Test_hal_spi.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_spi : $(BIN_DIR)/Test_hal_spi.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_spi.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_timer.o : Test_hal_timer.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_timer : $(BIN_DIR)/Test_hal_timer.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_timer.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_uart.o : Test_hal_uart.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_uart : $(BIN_DIR)/Test_hal_uart.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_uart.o $(MOCK_HAL_OBJECTS) $(LIBS)
-
-$(BIN_DIR)/Test_hal_usb.o : Test_hal_usb.cpp
-	@echo "Compiling $<"
-	$(CXX) -c $< $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/Test_hal_usb : $(BIN_DIR)/Test_hal_usb.o $(MOCK_HAL_OBJECTS)
-	@echo "Linking $@"
-	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/Test_hal_usb.o $(MOCK_HAL_OBJECTS) $(LIBS)
+	$(CXX) $(LIBS_PATH) -o $@ $(BIN_DIR)/TestMockHal.o $(TEST_HAL_OBJECTS) $(MOCK_HAL_OBJECTS) $(LIBS)
 
 # Rule for TestCyphal with extra sources
 $(BIN_DIR)/TestCyphal.o : TestCyphal.cpp
