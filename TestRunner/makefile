@@ -127,7 +127,7 @@ EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
 # Default target
-all: nunavut create_dirs $(ALL_SRC_OBJECTS) $(BIN_DIR)/libmockhal.a $(EXECUTABLES)
+all: nunavut $(ALL_SRC_OBJECTS) $(BIN_DIR)/libmockhal.a $(EXECUTABLES)
 
 # Nunavut header generation
 nunavut:
