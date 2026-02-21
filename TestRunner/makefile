@@ -127,6 +127,7 @@ EXTRA_OBJS_TestTaskCheckMemory := src/TaskCheckMemory.o src/RegistrationManager.
 EXTRA_OBJS_TestTaskDetumbler := src/RegistrationManager.o
 EXTRA_OBJS_TestTaskMagnetorquer := src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/Quaternion.o src/RegistrationManager.o src/LVLHAttitudeTarget.o
 EXTRA_OBJS_TestTaskMLX90640 := src/RegistrationManager.o
+EXTRA_OBJS_TestTaskNram := src/RegistrationManager.o
 EXTRA_OBJS_TestTaskOrientationService := src/RegistrationManager.o src/Quaternion.o src/TimeUtils.o 
 EXTRA_OBJS_TestTaskPositionService := src/RegistrationManager.o src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/GNSS.o src/GNSSCore.o sgp4/SGP4.o src/sgp4_tle.o 
 EXTRA_OBJS_TestTaskProcessHeartBeat := src/RegistrationManager.o

@@ -35,6 +35,42 @@ struct MramLayoutMembers<MramLayout>
     );
 };
 
+template <>
+struct MramTraits<mram_config_t, MramLayout>
+{
+    static constexpr uint32_t offset  = offsetof(MramLayout, config);
+    static constexpr uint32_t version = 1;
+    static constexpr std::size_t index = 0;
+    static constexpr const char* name = "config";
+};
+
+template <>
+struct MramTraits<mram_command_t, MramLayout>
+{
+    static constexpr uint32_t offset  = offsetof(MramLayout, command);
+    static constexpr uint32_t version = 1;
+    static constexpr std::size_t index = 1;
+    static constexpr const char* name = "command";
+};
+
+template <>
+struct MramTraits<mram_state_t, MramLayout>
+{
+    static constexpr uint32_t offset  = offsetof(MramLayout, state);
+    static constexpr uint32_t version = 1;
+    static constexpr std::size_t index = 2;
+    static constexpr const char* name = "state";
+};
+
+template <>
+struct MramTraits<mram_log_t, MramLayout>
+{
+    static constexpr uint32_t offset  = offsetof(MramLayout, log);
+    static constexpr uint32_t version = 1;
+    static constexpr std::size_t index = 3;
+    static constexpr const char* name = "log";
+};
+
 // ------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------
