@@ -24,6 +24,10 @@ struct DummyAdapter
     {
         return 1; // TX always "succeeds"
     }
+
+    CyphalNodeID getNodeID() const { return node_id; }
+
+    CyphalNodeID node_id;
 };
 
 // ------------------------------------------------------------
@@ -87,6 +91,7 @@ public:
     void injectOkResponse()
     {
         auto t = std::make_shared<TestCyphalTransfer>();
+        t->metadata.remote_node_id = this->node_id_; // Response from server
         t->metadata.transfer_id = this->write_state_.last_transfer_id;
         t->metadata.transfer_kind = CyphalTransferKindResponse;
         t->metadata.priority = CyphalPriorityNominal; // optional but realistic
@@ -147,6 +152,7 @@ TEST_CASE("TaskRequestWrite end-to-end with Buffer")
 
     // 3. Dummy Cyphal adapter
     DummyAdapter adapter;
+    adapter.node_id = 42;
     std::tuple<DummyAdapter &> adapters(adapter);
 
     // 4. Writer task

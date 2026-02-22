@@ -165,7 +165,9 @@ private:
 
 // Helper function to create a Write Response
 std::shared_ptr<CyphalTransfer> createWriteResponse(uint16_t error_code,
-                                                    CyphalTransferID expected_tid)
+                                                    CyphalTransferID expected_tid,
+                                                    CyphalNodeID client_node_id,
+                                                    CyphalNodeID server_node_id)
 {
     uavcan_file_Write_Response_1_1 response{};
     response._error.value = error_code;
@@ -183,7 +185,9 @@ std::shared_ptr<CyphalTransfer> createWriteResponse(uint16_t error_code,
 
     transfer->metadata.transfer_kind = CyphalTransferKindResponse;
     transfer->metadata.port_id = uavcan_file_Write_1_1_FIXED_PORT_ID_;
-    transfer->metadata.remote_node_id = 42; // or whatever the server node-ID is
+    transfer->metadata.remote_node_id = server_node_id;
+    transfer->metadata.source_node_id = server_node_id;
+    transfer->metadata.destination_node_id = client_node_id;
     transfer->metadata.priority = CyphalPriorityNominal;
 
     // *** CRITICAL ***
@@ -241,11 +245,12 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     uavcan_file_Write_Request_1_1 request{};
 
     // Create adapter
+    CyphalNodeID client_node_id = 11;
     LoopardAdapter loopard;
     loopard.memory_allocate = loopardMemoryAllocate;
     loopard.memory_free = loopardMemoryFree;
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard);
-    loopard_cyphal.setNodeID(11);
+    loopard_cyphal.setNodeID(client_node_id);
 
     std::tuple<Cyphal<LoopardAdapter>> adapters(loopard_cyphal); // Single adapter
 
@@ -255,13 +260,13 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     constexpr const char filename[] = "0000000012345678_03";
 
     // Task parameters
-    CyphalNodeID node_id = 42;
+    CyphalNodeID server_node_id = 42;
     CyphalTransferID transfer_id = 7;
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
     // Instantiate the TaskRequestWrite
-    MockTaskRequestWrite task(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task(mock_stream, interval, interval, tick, server_node_id, transfer_id, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
@@ -286,8 +291,8 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     CyphalTransfer transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
-    CHECK(transfer.metadata.transfer_id == transfer_id+0); // Request with defined transfer_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
+    CHECK(transfer.metadata.transfer_id == transfer_id+0);
     request = unpackRequest(transfer);
     CHECK(request.path.path.count == NAME_LENGTH);
     CHECK(strncmp(reinterpret_cast<char *>(request.path.path.elements), filename, sizeof(filename)) == 0);
@@ -298,7 +303,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Second Task Execution: Sends the data
 
-    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
+    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id, client_node_id, server_node_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -308,8 +313,8 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
-    CHECK(transfer.metadata.transfer_id == transfer_id+1); // Request with defined transfer_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
+    CHECK(transfer.metadata.transfer_id == transfer_id+1);
     request = unpackRequest(transfer);
     CHECK(request.path.path.count == NAME_LENGTH);
     CHECK(strncmp(reinterpret_cast<char *>(request.path.path.elements), filename, sizeof(filename)) == 0);
@@ -320,7 +325,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Third Task Execution: Sends Null
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id, client_node_id, server_node_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -330,7 +335,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+2); // Request with defined transfer_id
     request = unpackRequest(transfer);
     CHECK(request.path.path.count == NAME_LENGTH);
@@ -341,7 +346,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle")
 
     // Fourth Task Execution: Receive OK
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id, client_node_id, server_node_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -357,11 +362,12 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     uavcan_file_Write_Request_1_1 request{};
 
     // Create adapter
+    CyphalNodeID client_node_id = 11;
     LoopardAdapter loopard;
     loopard.memory_allocate = loopardMemoryAllocate;
     loopard.memory_free = loopardMemoryFree;
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard);
-    loopard_cyphal.setNodeID(11);
+    loopard_cyphal.setNodeID(client_node_id);
 
     std::tuple<Cyphal<LoopardAdapter>> adapters(loopard_cyphal); // Single adapter
 
@@ -371,13 +377,13 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     constexpr const char filename[] = "0000000012345678_03";
 
     // Task parameters
-    CyphalNodeID node_id = 42;
+    CyphalNodeID server_node_id = 42;
     CyphalTransferID transfer_id = 7;
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
     // Instantiate the TaskRequestWrite
-    MockTaskRequestWrite task(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
+    MockTaskRequestWrite task(mock_stream, interval, interval, tick, server_node_id, transfer_id, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
@@ -402,13 +408,13 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     CyphalTransfer transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+0); // Request with defined transfer_id
     request = unpackRequest(transfer);
     free(transfer.payload);
     loopard.buffer.clear();
 
-    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
+    auto ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id, client_node_id, server_node_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -417,7 +423,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+1); // Request with defined transfer_id
     request = unpackRequest(transfer);
     CHECK(request.path.path.count == NAME_LENGTH);
@@ -429,7 +435,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Second Task Execution: Sends the data
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK , transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK , transfer.metadata.transfer_id, client_node_id, server_node_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -438,7 +444,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+2); // Request with defined transfer_id
     CHECK(strncmp(&static_cast<char *>(transfer.payload)[27], reinterpret_cast<char *>(test_data.data()), 24) == 0);
     request = unpackRequest(transfer);
@@ -449,7 +455,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     free(transfer.payload);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id, client_node_id, server_node_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -458,7 +464,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+3); // Request with defined transfer_id
     CHECK(strncmp(&static_cast<char *>(transfer.payload)[27], reinterpret_cast<char *>(test_data.data()), 24) == 0);
     request = unpackRequest(transfer);
@@ -471,7 +477,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Third Task Execution: Sends Null
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id, client_node_id, server_node_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -480,7 +486,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);
     CHECK(transfer.metadata.transfer_id == transfer_id+4); // Request with defined transfer_id
     CHECK(transfer.payload_size == 27);
     request = unpackRequest(transfer);
@@ -490,7 +496,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     free(transfer.payload);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id, client_node_id, server_node_id);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
     CHECK(loopard.buffer.size() == 1);
@@ -499,7 +505,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     transfer = loopard.buffer.pop();
     CHECK(transfer.metadata.port_id == uavcan_file_Write_1_1_FIXED_PORT_ID_);
     CHECK(transfer.metadata.transfer_kind == CyphalTransferKindRequest);
-    CHECK(transfer.metadata.remote_node_id == 11);       // Request with client node_id
+    CHECK(transfer.metadata.remote_node_id == client_node_id);       // Request with client server_node_id
     CHECK(transfer.metadata.transfer_id == transfer_id+5); // Request with defined transfer_id
     CHECK(transfer.payload_size == 27);
     request = unpackRequest(transfer);
@@ -511,7 +517,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
 
     // Third Task Execution: Receive OK
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_IO_ERROR, transfer.metadata.transfer_id, client_node_id, server_node_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -519,7 +525,7 @@ TEST_CASE("TaskRequestWrite: Handles Write Request Lifecycle with Errors")
     CHECK(task.buffer_.size() == 0);
     loopard.buffer.clear();
 
-    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id);
+    ret_transfer = createWriteResponse(uavcan_file_Error_1_0_OK, transfer.metadata.transfer_id, client_node_id, server_node_id);
     response = unpackResponse(ret_transfer);
     task.handleMessage(ret_transfer);
     task.handleTaskImpl();
@@ -532,11 +538,12 @@ TEST_CASE("TaskRequestWrite: Registers and Unregisters correctly")
     LocalHeap::initialize();
     
     // Create adapter
+    CyphalNodeID client_node_id = 11;
     LoopardAdapter loopard;
     loopard.memory_allocate = loopardMemoryAllocate;
     loopard.memory_free = loopardMemoryFree;
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard);
-    loopard_cyphal.setNodeID(11);
+    loopard_cyphal.setNodeID(client_node_id);
 
     std::tuple<Cyphal<LoopardAdapter>> adapters(loopard_cyphal); // Single adapter
 
@@ -545,7 +552,7 @@ TEST_CASE("TaskRequestWrite: Registers and Unregisters correctly")
     MockImageInputStream<MockBuffer> mock_stream(mock_buffer, 16);
 
     // Task parameters
-    CyphalNodeID node_id = 42;
+    CyphalNodeID server_node_id = 42;
     CyphalTransferID transfer_id = 7;
     uint32_t tick = 0;
     uint32_t interval = 1000;
@@ -554,7 +561,7 @@ TEST_CASE("TaskRequestWrite: Registers and Unregisters correctly")
     RegistrationManager registration_manager;
 
     // Instantiate the TaskRequestWrite
-    auto task = std::make_shared<MockTaskRequestWrite<MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>>(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
+    auto task = std::make_shared<MockTaskRequestWrite<MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>>(mock_stream, interval, interval, tick, server_node_id, transfer_id, adapters);
 
     // Initial state
     CHECK(registration_manager.getClients().size() == 0);

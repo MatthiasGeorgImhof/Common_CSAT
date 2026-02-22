@@ -66,12 +66,22 @@ public:
 
 protected:
     bool request();
-    bool respond();
-    void reset();
-
     void send_init_request(uavcan_file_Write_Request_1_1 *data, size_t num_values);
     void send_transfer_request(uavcan_file_Write_Request_1_1 *data, size_t num_values);
     void send_done_request(uavcan_file_Write_Request_1_1 *data);
+
+    bool respond();
+    bool no_response_available() const;
+    bool handle_timeout_or_wait();
+    std::shared_ptr<CyphalTransfer> pop_response();
+    bool validate_response(const std::shared_ptr<CyphalTransfer>& t);
+    bool deserialize_response(const std::shared_ptr<CyphalTransfer>& t, uavcan_file_Write_Response_1_1& out);
+    bool validate_transfer_id(const std::shared_ptr<CyphalTransfer>& t);
+    bool validate_state_for_response() const;
+    bool handle_response_code(const uavcan_file_Write_Response_1_1& data);
+
+    void reset();
+    bool reset_and_fail();
 
     bool should_restart_transfer() const;
     void restart_transfer();
@@ -124,135 +134,163 @@ void TaskRequestWrite<InputStream, Adapters...>::handleTaskImpl()
 }
 
 template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::respond()
+bool TaskRequestWrite<InputStream, Adapters...>::no_response_available() const
 {
-    log(LOG_LEVEL_DEBUG, "TaskRequestWrite: respond in state %d\r\n", write_state_.state);
+    return TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty();
+}
 
-    // No response available yet: handle timeout and resend transitions.
-    if (TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty())
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::handle_timeout_or_wait()
+{
+    if (HAL_GetTick() < write_state_.timeout)
+        return true;  // still waiting
+
+    switch (write_state_.state)
     {
-        if (HAL_GetTick() < write_state_.timeout)
-
-            return true;
-
-        switch (write_state_.state)
-        {
-        case WAIT_INIT:
-            write_state_.state = RESEND_INIT;
-            break;
-        case WAIT_TRANSFER:
-            write_state_.state = RESEND_TRANSFER;
-            break;
-        case WAIT_DONE:
-            write_state_.state = RESEND_DONE;
-            break;
-        default:
-            break;
-        }
-        return false;
+        case WAIT_INIT:     write_state_.state = RESEND_INIT;     break;
+        case WAIT_TRANSFER: write_state_.state = RESEND_TRANSFER; break;
+        case WAIT_DONE:     write_state_.state = RESEND_DONE;     break;
+        default: break;
     }
 
-    // Pop the next response.
-    std::shared_ptr<CyphalTransfer> transfer = TaskForClient<CyphalBuffer8, Adapters...>::buffer_.pop();
-    if (transfer->metadata.transfer_kind != CyphalTransferKindResponse)
+    return false; // signal request() to resend
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+std::shared_ptr<CyphalTransfer> TaskRequestWrite<InputStream, Adapters...>::pop_response()
+{
+    return TaskForClient<CyphalBuffer8, Adapters...>::buffer_.pop();
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::validate_response(const std::shared_ptr<CyphalTransfer>& t)
+{
+    // Only accept CyphalTransferKindResponse
+    if (t->metadata.transfer_kind != CyphalTransferKindResponse)
     {
-        log(LOG_LEVEL_ERROR, "TaskRequestWrite: Expected Response transfer kind\r\n");
-        reset(); // 4) Reset on protocol violation
-        return false;
+        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring non-response transfer kind %d", t->metadata.transfer_kind);
+        return false;   // discard silently
     }
 
-    uavcan_file_Write_Response_1_1 data;
-    size_t payload_size = transfer->payload_size;
-
-    int8_t deserialization_result =
-        uavcan_file_Write_Response_1_1_deserialize_(&data,
-                                                    static_cast<const uint8_t *>(transfer->payload),
-                                                    &payload_size);
-    if (deserialization_result < 0)
-    {
-        log(LOG_LEVEL_ERROR, "TaskRequestWrite: Deserialization Error\r\n");
-        reset(); // 4) Reset on invalid payload
-        return false;
-    }
-
-    log(LOG_LEVEL_DEBUG,
-        "TaskRequestWrite: received response %d in state %d for transfer_id %d \r\n",
-        data._error,
-        write_state_.state,
-        transfer->metadata.transfer_id);
-
-    // 1) Validate transfer-ID
-    if (transfer->metadata.transfer_id != write_state_.last_transfer_id)
-    {
-        log(LOG_LEVEL_ERROR,
-            "TaskRequestWrite: Unexpected transfer-ID: expected %d, got %d\r\n",
-            write_state_.last_transfer_id,
-            transfer->metadata.transfer_id);
-        reset(); // 4) Reset on unexpected transfer-ID
-        return false;
-    }
-
-    // 2) Reject responses in invalid states
-    if (write_state_.state != WAIT_INIT &&
-        write_state_.state != WAIT_TRANSFER &&
-        write_state_.state != WAIT_DONE)
-    {
-        log(LOG_LEVEL_ERROR,
-            "TaskRequestWrite: Response received in invalid state %d\r\n",
-            write_state_.state);
-        reset(); // 4) Reset on unexpected state
-        return false;
-    }
-
-    // Normal state machine progression.
-    if (data._error.value == uavcan_file_Error_1_0_OK)
-    {
-        switch (write_state_.state)
-        {
-        case WAIT_INIT:
-            write_state_.state = SEND_TRANSFER;
-            break;
-
-        case WAIT_TRANSFER:
-            write_state_.state = SEND_TRANSFER;
-            break;
-
-        case WAIT_DONE:
-            stream_.finalize();
-            reset();
-            break;
-
-        default:
-            // Should be unreachable due to the state check above.
-            reset();
-            return false;
-        }
-    }
-    else
-    {
-        switch (write_state_.state)
-        {
-        case WAIT_INIT:
-            write_state_.state = RESEND_INIT;
-            break;
-
-        case WAIT_TRANSFER:
-            write_state_.state = RESEND_TRANSFER;
-            break;
-
-        case WAIT_DONE:
-            write_state_.state = RESEND_DONE;
-            break;
-
-        default:
-            // Should be unreachable due to the state check above.
-            reset();
-            return false;
-        }
+    // Only accept responses from our server     
+    if (t->metadata.remote_node_id != TaskForClient<CyphalBuffer8, Adapters...>::node_id_)
+    { 
+        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring response from node %d", t->metadata.remote_node_id); 
+        return false; 
     }
 
     return true;
 }
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::validate_transfer_id(const std::shared_ptr<CyphalTransfer>& t)
+{
+    if (t->metadata.transfer_id == write_state_.last_transfer_id)
+        return true;
+
+    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Unexpected transfer-ID: expected %d, got %d", write_state_.last_transfer_id, t->metadata.transfer_id);
+
+    return false;
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::deserialize_response(const std::shared_ptr<CyphalTransfer>& t, uavcan_file_Write_Response_1_1& out)
+{
+    size_t payload_size = t->payload_size;
+    int8_t res = uavcan_file_Write_Response_1_1_deserialize_( &out, static_cast<const uint8_t*>(t->payload), &payload_size);
+
+    if (res >= 0)
+        return true;
+
+    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Deserialization Error");
+    return false;
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::validate_state_for_response() const
+{
+    switch (write_state_.state)
+    {
+        case WAIT_INIT:
+        case WAIT_TRANSFER:
+        case WAIT_DONE:
+            return true;
+
+        default:
+            log(LOG_LEVEL_ERROR, "TaskRequestWrite: Response received in invalid state %d", write_state_.state); return false;
+    }
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::handle_response_code(const uavcan_file_Write_Response_1_1& data)
+{
+    const bool ok = (data._error.value == uavcan_file_Error_1_0_OK);
+
+    switch (write_state_.state)
+    {
+        case WAIT_INIT:
+            write_state_.state = ok ? SEND_TRANSFER : RESEND_INIT;
+            return true;
+
+        case WAIT_TRANSFER:
+            write_state_.state = ok ? SEND_TRANSFER : RESEND_TRANSFER;
+            return true;
+
+        case WAIT_DONE:
+            if (ok)
+            {
+                stream_.finalize();
+                reset();
+                return true;
+            }
+            write_state_.state = RESEND_DONE;
+            return true;
+
+        default:
+            reset();
+            return false;
+    }
+}
+
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::respond()
+{
+    log(LOG_LEVEL_DEBUG, "TaskRequestWrite: respond() in state %d offset=%d last_tid=%d tries=%d", write_state_.state, write_state_.offset, write_state_.last_transfer_id, write_state_.num_tries);
+
+    // Case A: no messages at all → timeout logic
+    if (no_response_available())
+        return handle_timeout_or_wait();
+
+    // Case B: messages available → loop until we find one for us
+    while (!no_response_available())
+    {
+        auto transfer = pop_response();
+
+        // Ignore unrelated messages (wrong kind, wrong port-ID)
+        if (!validate_response(transfer))
+            continue;
+
+        // Now we know it's a response for THIS task
+        uavcan_file_Write_Response_1_1 data;
+        if (!deserialize_response(transfer, data))
+            return reset_and_fail();
+
+        if (!validate_transfer_id(transfer))
+            return reset_and_fail();
+
+        if (!validate_state_for_response())
+            return reset_and_fail();
+
+        // This is the only place where a valid response affects the state machine
+        return handle_response_code(data);
+    }
+
+    // If we consumed everything but found nothing for us,
+    // we simply wait for more messages.
+    return true;
+}
+
 
 template <InputStreamConcept InputStream, typename... Adapters>
 void TaskRequestWrite<InputStream, Adapters...>::send_init_request(uavcan_file_Write_Request_1_1 *data, size_t num_values)
@@ -296,6 +334,13 @@ void TaskRequestWrite<InputStream, Adapters...>::restart_transfer()
     write_state_.state = SEND_INIT;
     write_state_.offset = 0;
     write_state_.num_tries = 0;
+}
+
+template <InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<InputStream, Adapters...>::reset_and_fail()
+{
+    reset();
+    return false;
 }
 
 template <InputStreamConcept InputStream, typename... Adapters>
