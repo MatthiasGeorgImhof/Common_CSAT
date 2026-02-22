@@ -54,7 +54,7 @@ public:
                      std::tuple<Adapters...> &adapters)
         : TaskForClient<CyphalBuffer8, Adapters...>(sleep_interval, tick, node_id, transfer_id, adapters),
           TaskPacing(sleep_interval, operate_interval),
-          stream_(stream), total_size_(0), name_{}, write_state_(IDLE, 0, 0, 0, 0), values_{}, num_values_(0)
+          stream_(stream), total_size_(0), name_{}, write_state_(IDLE, 0, 0, wrap_transfer_id(transfer_id), 0), values_{}, num_values_(0)
     {
     }
 
@@ -115,8 +115,9 @@ void TaskRequestWrite<InputStream, Adapters...>::reset()
         TaskForClient<CyphalBuffer8, Adapters...>::buffer_.pop();
     }
     
-    this->transfer_id_ = static_cast<CyphalTransferID>((this->transfer_id_ + 1) & 0x1f);
-    write_state_ = WriteState{IDLE, 0, 0, static_cast<CyphalTransferID>((this->transfer_id_ - 1) & 0x1f), 0};
+    write_state_ = WriteState{IDLE, 0, 0, wrap_transfer_id(this->transfer_id_), 0};
+    this->transfer_id_ = wrap_transfer_id(this->transfer_id_ + 1);
+    log(LOG_LEVEL_WARNING, "TaskRequestWrite: reset, transfer_id  %d -> %d\r\n", write_state_.last_transfer_id, this->transfer_id_);
 
     name_ = {};
     TaskPacing::sleep(*this);
@@ -168,14 +169,14 @@ bool TaskRequestWrite<InputStream, Adapters...>::validate_response(const std::sh
     // Only accept CyphalTransferKindResponse
     if (t->metadata.transfer_kind != CyphalTransferKindResponse)
     {
-        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring non-response transfer kind %d", t->metadata.transfer_kind);
+        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring non-response transfer kind %d\r\n", t->metadata.transfer_kind);
         return false;   // discard silently
     }
 
     // Only accept responses from our server     
     if (t->metadata.remote_node_id != TaskForClient<CyphalBuffer8, Adapters...>::node_id_)
     { 
-        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring response from node %d", t->metadata.remote_node_id); 
+        log(LOG_LEVEL_DEBUG, "TaskRequestWrite: ignoring response from node %d\r\n", t->metadata.remote_node_id);
         return false; 
     }
 
@@ -188,7 +189,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::validate_transfer_id(const std:
     if (t->metadata.transfer_id == write_state_.last_transfer_id)
         return true;
 
-    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Unexpected transfer-ID: expected %d, got %d", write_state_.last_transfer_id, t->metadata.transfer_id);
+    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Unexpected transfer-ID: expected %d, got %d\r\n", write_state_.last_transfer_id, t->metadata.transfer_id);
 
     return false;
 }
@@ -202,7 +203,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::deserialize_response(const std:
     if (res >= 0)
         return true;
 
-    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Deserialization Error");
+    log(LOG_LEVEL_ERROR, "TaskRequestWrite: Deserialization Error\r\n");
     return false;
 }
 
@@ -217,7 +218,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::validate_state_for_response() c
             return true;
 
         default:
-            log(LOG_LEVEL_ERROR, "TaskRequestWrite: Response received in invalid state %d", write_state_.state); return false;
+            log(LOG_LEVEL_ERROR, "TaskRequestWrite: Response received in invalid state %d\r\n", write_state_.state); return false;
     }
 }
 
@@ -256,7 +257,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::handle_response_code(const uavc
 template <InputStreamConcept InputStream, typename... Adapters>
 bool TaskRequestWrite<InputStream, Adapters...>::respond()
 {
-    log(LOG_LEVEL_DEBUG, "TaskRequestWrite: respond() in state %d offset=%d last_tid=%d tries=%d", write_state_.state, write_state_.offset, write_state_.last_transfer_id, write_state_.num_tries);
+    log(LOG_LEVEL_DEBUG, "TaskRequestWrite: respond() in state %d offset=%d last_tid=%d tries=%d\r\n", write_state_.state, write_state_.offset, write_state_.last_transfer_id, write_state_.num_tries);
 
     // Case A: no messages at all → timeout logic
     if (no_response_available())
@@ -441,7 +442,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::request()
         return false; // catch it all
     }
 
-    write_state_.last_transfer_id = this->transfer_id_;
+    write_state_.last_transfer_id = wrap_transfer_id(this->transfer_id_);
     constexpr size_t PAYLOAD_SIZE = uavcan_file_Write_Request_1_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t payload[PAYLOAD_SIZE];
     TaskForClient<CyphalBuffer8, Adapters...>::publish(
@@ -454,7 +455,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::request()
         TaskForClient<CyphalBuffer8, Adapters...>::node_id_);
     log(LOG_LEVEL_DEBUG, "TaskRequestWrite: sent request with %d bytes at offset %d and transfer_id %d\r\n", data->data.value.count, write_state_.offset - data->data.value.count, this->transfer_id_);
     write_state_.timeout = HAL_GetTick() + TIMEOUT_FACTOR * Task::interval_;
-    ++this->transfer_id_;
+    this->transfer_id_ = wrap_transfer_id(this->transfer_id_ + 1);
     return true;
 }
 

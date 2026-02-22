@@ -27,8 +27,13 @@ LIBS = -lcanard_fwd -lserard_fwd -ludpard_fwd -lo1heapd
 
 BIN_DIR = bin
 
-# Ensure mock_hal directory exists (per your request)
-$(shell mkdir -p ../Src/mock_hal)
+# Create all build directories unconditionally
+$(shell mkdir -p \
+	$(BIN_DIR)/src \
+	$(BIN_DIR)/sgp4 \
+	$(BIN_DIR)/3rdParty \
+	$(BIN_DIR)/mock_hal \
+)
 
 # Wildcard discovery
 SRC_FILES := $(wildcard ../Src/*.cpp ../3rdParty/SGP4/*.cpp 3rdParty/*.c)
@@ -133,19 +138,6 @@ all: nunavut $(ALL_SRC_OBJECTS) $(BIN_DIR)/libmockhal.a $(EXECUTABLES)
 nunavut:
 	@echo "Running Nunavut header generation..."
 	$(MAKE) -C ../OpenCyphal -f makefile
-
-# Directory creation (make -j safe)
-$(BIN_DIR)/src:
-	mkdir -p $@
-
-$(BIN_DIR)/sgp4:
-	mkdir -p $@
-
-$(BIN_DIR)/3rdParty:
-	mkdir -p $@
-
-$(BIN_DIR)/mock_hal:
-	mkdir -p $@
 
 # Compile rules with directory prerequisites
 $(BIN_DIR)/src/%.o: | $(BIN_DIR)/src
