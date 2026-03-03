@@ -27,7 +27,7 @@ public:
         path_length_ = std::min<std::size_t>(NAME_LENGTH, path.length());
         std::memset(path_.data(), 0, NAME_LENGTH);
         std::memcpy(path_.data(), path.data(), path_length_);
-        path_.data()[std::min(NAME_LENGTH, path_length+1)] = '\0';
+        path_.data()[std::min(NAME_LENGTH, path_length_+1)] = '\0';
     }
 
     const std::array<char, NAME_LENGTH>& getPath() const {

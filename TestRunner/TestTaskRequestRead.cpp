@@ -106,7 +106,7 @@ public:
         return path_length_;
     }
 
-    const std::array<char, NAME_LENGTH> getPath() const
+    const std::array<char, NAME_LENGTH>& getPath() const
     {
         return path_;
     }
