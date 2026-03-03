@@ -23,7 +23,7 @@ TEST_CASE("POSIXFileAccess Test") {
     test_file.close();
 
     POSIXFileAccess file_access;
-    std::array<char, NAME_LENGTH> path{};
+    FileName path{};
 
     const char* src = NAME;
 
@@ -77,7 +77,7 @@ TEST_CASE("POSIXFileAccess Test") {
     }
 
     SUBCASE("File Does Not Exist") {
-        std::array<char, NAME_LENGTH> non_existent_path;
+        FileName non_existent_path;
 
         const char* src = "nonexistent.txt";
         std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), non_existent_path.begin());
@@ -104,7 +104,7 @@ TEST_CASE("ValidatedPOSIXFileAccess Test") {
     test_file.close();
 
     ValidatedPOSIXFileAccess file_access("./"); // Base path is the current directory
-    std::array<char, NAME_LENGTH> path;
+    FileName path;
 
     const char* src = NAME;
     std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), path.begin());
@@ -121,7 +121,7 @@ TEST_CASE("ValidatedPOSIXFileAccess Test") {
     }
 
     SUBCASE("Invalid Path - Traversal Attempt") {
-        std::array<char, NAME_LENGTH> traversal_path;
+        FileName traversal_path;
         const char* src = "../test_validated.txt";
 
         std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), traversal_path.begin());
@@ -133,7 +133,7 @@ TEST_CASE("ValidatedPOSIXFileAccess Test") {
     }
 
     SUBCASE("File Does Not Exist") {
-        std::array<char, NAME_LENGTH> non_existent_path;
+        FileName non_existent_path;
 
         const char* src = "nonexistent.txt";
         std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), non_existent_path.begin());
@@ -183,7 +183,7 @@ TEST_CASE("Virtual File System Test") {
     MockVirtualFileSystem vfs(test_content);
 
     VFSFileAccess file_access(vfs);
-    std::array<char, NAME_LENGTH> path;
+    FileName path;
     const char* src = "test_vfs.txt";
     std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), path.begin());
     path[NAME_LENGTH - 1] = '\0';
@@ -262,7 +262,7 @@ TEST_CASE("Virtual File System Test inexistant file") {
     MockVirtualFileSystem vfs(test_content);
 
     VFSFileAccess file_access(vfs);
-    std::array<char, NAME_LENGTH> path;
+    FileName path;
     const char* src = "test_vfs.txt";
     std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), path.begin());
     path[NAME_LENGTH - 1] = '\0';
@@ -271,7 +271,7 @@ TEST_CASE("Virtual File System Test inexistant file") {
     size_t size = sizeof(buffer);
 
     SUBCASE("File Does Not Exist") {
-        std::array<char, NAME_LENGTH> non_existent_path;
+        FileName non_existent_path;
         const char* src = "nonexistent.txt";
         std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), non_existent_path.begin());
         non_existent_path[NAME_LENGTH - 1] = '\0';
@@ -290,7 +290,7 @@ TEST_CASE("InMemoryFileAccess Test") {
     size_t content_length = data.size();
 
     InMemoryFileAccess file_access(vfs);
-    std::array<char, NAME_LENGTH> path{};
+    FileName path{};
 
     const char* src = NAME;
     std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), path.begin());
@@ -344,7 +344,7 @@ TEST_CASE("InMemoryFileAccess Test") {
 
 
     SUBCASE("File Does Not Exist") {
-        std::array<char, NAME_LENGTH> non_existent_path;
+        FileName non_existent_path;
 
         const char* src = "nonexistent.txt";
         std::copy(src, src + std::min((size_t)NAME_LENGTH - 1, std::strlen(src)), non_existent_path.begin());

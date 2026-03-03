@@ -64,7 +64,7 @@ public:
         }
 
         // Convert path
-        std::array<char, NAME_LENGTH> path{};
+        FileName path{};
         for (size_t i = 0; i < req.path.path.count && i < NAME_LENGTH - 1; i++)
             path[i] = static_cast<char>(req.path.path.elements[i]);
 

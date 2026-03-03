@@ -55,9 +55,9 @@ struct MramTraits<mram_state_t, MramLayout>
 // ------------------------------------------------------------
 // Helper: convert string to NAME_LENGTH array
 // ------------------------------------------------------------
-std::array<char, NAME_LENGTH> makePath(const char* s)
+FileName makePath(const char* s)
 {
-    std::array<char, NAME_LENGTH> arr{};
+    FileName arr{};
     std::snprintf(arr.data(), NAME_LENGTH, "%s", s);
     return arr;
 }

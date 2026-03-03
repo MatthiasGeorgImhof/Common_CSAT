@@ -15,7 +15,7 @@ public:
     explicit MramFileAccess(std::uint8_t* mram_base) : base_(mram_base) {}
 
     template <typename Layout>
-    bool read(const std::array<char, NAME_LENGTH>& path_array,
+    bool read(const FileName& path_array,
               std::size_t offset,
               std::uint8_t* buffer,
               std::size_t& size)
@@ -48,7 +48,7 @@ class MramChipFileAccess
 public:
     explicit MramChipFileAccess(const NramTransport& chip) : chip_(chip) {}
 
-    bool read(const std::array<char, NAME_LENGTH>& path_array,
+    bool read(const FileName& path_array,
               std::size_t offset,
               std::uint8_t* buffer,
               std::size_t& size)

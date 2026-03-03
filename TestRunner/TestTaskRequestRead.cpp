@@ -74,7 +74,7 @@ public:
         path_length_ = std::min(filepath.size(), static_cast<size_t>(NAME_LENGTH - 1));
     }
 
-    bool open(const std::array<char, NAME_LENGTH> & /*path*/)
+    bool open(const FileName & /*path*/)
     {
         offset_ = 0; // Reset the offset when opening
         return true;
@@ -97,7 +97,7 @@ public:
         return path_length_;
     }
 
-    const std::array<char, NAME_LENGTH>& getPath() const
+    const FileName& getPath() const
     {
         return path_;
     }
@@ -124,7 +124,7 @@ public:
 private:
     std::string content_;
     size_t offset_;
-    std::array<char, NAME_LENGTH> path_;
+    FileName path_;
     size_t path_length_;
     size_t chunk_size_ = 256;
 };
@@ -137,7 +137,7 @@ public:
     MockOutputStream() {}
     ~MockOutputStream() = default;
 
-    bool initialize(const std::array<char, NAME_LENGTH> &name)
+    bool initialize(const FileName &name)
     {
         path_ = name;
         return true;
@@ -170,7 +170,7 @@ public:
 
 private:
     std::vector<uint8_t> received_data_;
-    std::array<char, NAME_LENGTH> path_;
+    FileName path_;
     bool is_finalized_ = false;
 };
 
@@ -188,7 +188,7 @@ public:
         }
     }
 
-    bool read(const std::array<char, NAME_LENGTH> & /*path*/, size_t offset, uint8_t *buffer, size_t &size)
+    bool read(const FileName & /*path*/, size_t offset, uint8_t *buffer, size_t &size)
     {
         if (offset >= file_size_)
         {

@@ -13,13 +13,13 @@
 #include "InputOutputStream.hpp" // For NAME_LENGTH, Error, etc.
 
 template <typename Accessor>
-concept FileAccessConcept = requires(Accessor& a, const std::array<char, NAME_LENGTH>& path, size_t offset, uint8_t* buffer, size_t& size) {
+concept FileAccessConcept = requires(Accessor& a, const FileName& path, size_t offset, uint8_t* buffer, size_t& size) {
     { a.read(path, offset, buffer, size) } -> std::convertible_to<bool>;
 };
 
 class POSIXFileAccess {
 public:
-    bool read(const std::array<char, NAME_LENGTH>& path, size_t offset, uint8_t* buffer, size_t& size) {
+    bool read(const FileName& path, size_t offset, uint8_t* buffer, size_t& size) {
         std::ifstream file(path.data(), std::ios::binary);
         if (!file.is_open()) {
             size = 0;
@@ -39,7 +39,7 @@ class ValidatedPOSIXFileAccess {
 public:
     ValidatedPOSIXFileAccess(const std::string& base_path = "/") : base_path_(base_path) {}
 
-    bool read(const std::array<char, NAME_LENGTH>& path_array, size_t offset, uint8_t* buffer, size_t& size) {
+    bool read(const FileName& path_array, size_t offset, uint8_t* buffer, size_t& size) {
         // Convert path array to string
         std::string path(path_array.data());
 
@@ -144,7 +144,7 @@ class VFSFileAccess {
 public:
     VFSFileAccess(VirtualFileSystem& vfs) : vfs_(vfs) {}
 
-    bool read(const std::array<char, NAME_LENGTH>& path_array, size_t offset, uint8_t* buffer, size_t& size) {
+    bool read(const FileName& path_array, size_t offset, uint8_t* buffer, size_t& size) {
         // Convert path array to string
         std::string path(path_array.data());
 
@@ -216,7 +216,7 @@ class InMemoryFileAccess
 public:
     InMemoryFileAccess(InMemoryFileSystem& vfs) : vfs_(vfs) {}
 
-    bool read(const std::array<char, NAME_LENGTH>& path_array, size_t offset, uint8_t* buffer, size_t& size) {
+    bool read(const FileName& path_array, size_t offset, uint8_t* buffer, size_t& size) {
         // Convert path array to string
         std::string path(path_array.data());
 
