@@ -54,7 +54,7 @@ TEST_CASE("MR25H10 readBytes sends correct header and reads payload") {
     uint8_t expected_payload[3] = { 0x11, 0x22, 0x33 };
     inject_spi_rx_data(expected_payload, 3);
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     SRAM sram(transport);
 
@@ -77,7 +77,7 @@ TEST_CASE("MR25H10 readBytes sends correct header and reads payload") {
 TEST_CASE("MR25H10 writeBytes sends WREN, header, and payload") {
     clear_spi_tx_buffer();
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     SRAM sram(transport);
 

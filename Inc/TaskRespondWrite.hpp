@@ -23,8 +23,11 @@ public:
                      std::tuple<Adapters...>& adapters)
         : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters),
           stream_(stream),
-          active_write_(false)
-    {}
+          active_write_(false),
+          active_writer_id_(CYPHAL_NODE_ID_UNSET)
+    {
+        active_path_.fill('\0');
+    }
 
     void registerTask(RegistrationManager* manager, std::shared_ptr<Task> task) override
     {
@@ -68,19 +71,54 @@ public:
         for (size_t i = 0; i < req.path.path.count && i < NAME_LENGTH - 1; i++)
             path[i] = static_cast<char>(req.path.path.elements[i]);
 
-        // First chunk?
-        if (req.offset == 0 && !active_write_)
+        const CyphalNodeID writer = transfer->metadata.remote_node_id;
+
+        //
+        // --- SESSION ADMISSION RULES ---
+        //
+
+        if (req.offset == 0)
         {
-            active_write_ = stream_.initialize(path);
+            // New session request
             if (!active_write_)
             {
+                // Accept new session
+                active_write_ = stream_.initialize(path);
+                if (!active_write_)
+                {
+                    resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+                    sendResponse(*transfer, resp);
+                    return;
+                }
+
+                active_writer_id_ = writer;
+                active_path_ = path;
+            }
+            else
+            {
+                // Reject: another writer is active
+                resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+                sendResponse(*transfer, resp);
+                return;
+            }
+        }
+        else
+        {
+            // Continuation chunk
+            if (!active_write_ ||
+                writer != active_writer_id_ ||
+                std::strncmp(active_path_.data(), path.data(), NAME_LENGTH) != 0)
+            {
+                // Reject: invalid continuation
                 resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
                 sendResponse(*transfer, resp);
                 return;
             }
         }
 
-        // Write chunk
+        //
+        // --- WRITE CHUNK ---
+        //
         if (active_write_)
         {
             bool ok = stream_.output(req.data.value.elements,
@@ -90,11 +128,15 @@ public:
                 resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
         }
 
-        // End of file?
+        //
+        // --- END OF FILE ---
+        //
         if (req.data.value.count == 0 && active_write_)
         {
             stream_.finalize();
             active_write_ = false;
+            active_writer_id_ = CYPHAL_NODE_ID_UNSET;
+            active_path_.fill('\0');
         }
 
         sendResponse(*transfer, resp);
@@ -112,7 +154,7 @@ private:
         TaskForServer<CyphalBuffer8, Adapters...>::publish(
             PAYLOAD_SIZE,
             payload,
-            &resp,
+            &resp,   // now valid because publish() takes const void*
             reinterpret_cast<int8_t (*)(const void*, uint8_t*, size_t*)>(
                 uavcan_file_Write_Response_1_1_serialize_),
             uavcan_file_Write_1_1_FIXED_PORT_ID_,
@@ -122,7 +164,11 @@ private:
 
 private:
     Stream& stream_;
+
+    // Remote write session state
     bool active_write_;
+    CyphalNodeID active_writer_id_;
+    FileName active_path_;
 };
 
 #endif // __TASKRESPONDWRITE_HPP_
