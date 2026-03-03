@@ -35,6 +35,9 @@ struct MramLayoutMembers<MramLayout>
     );
 };
 
+// ------------------------------------------------------------
+// Mission-specific traits
+// ------------------------------------------------------------
 template <>
 struct MramTraits<mram_config_t, MramLayout>
 {
@@ -72,23 +75,16 @@ struct MramTraits<mram_log_t, MramLayout>
 };
 
 // ------------------------------------------------------------
-// Tests
+// Tests for traits
 // ------------------------------------------------------------
 TEST_CASE("MramTraits resolves correct offsets")
 {
     using L = MramLayout;
 
-    CHECK(MramTraits<mram_config_t, L>::offset ==
-          offsetof(L, config));
-
-    CHECK(MramTraits<mram_command_t, L>::offset ==
-          offsetof(L, command));
-
-    CHECK(MramTraits<mram_state_t, L>::offset ==
-          offsetof(L, state));
-
-    CHECK(MramTraits<mram_log_t, L>::offset ==
-          offsetof(L, log));
+    CHECK(MramTraits<mram_config_t, L>::offset == offsetof(L, config));
+    CHECK(MramTraits<mram_command_t, L>::offset == offsetof(L, command));
+    CHECK(MramTraits<mram_state_t, L>::offset == offsetof(L, state));
+    CHECK(MramTraits<mram_log_t, L>::offset == offsetof(L, log));
 }
 
 TEST_CASE("MramTraits resolves correct versions")
@@ -109,4 +105,72 @@ TEST_CASE("MramTraits resolves correct member index")
     CHECK(MramTraits<mram_command_t, L>::index == 1);
     CHECK(MramTraits<mram_state_t, L>::index == 2);
     CHECK(MramTraits<mram_log_t, L>::index == 3);
+}
+
+// ------------------------------------------------------------
+// Tests for MramRegistry
+// ------------------------------------------------------------
+TEST_CASE("MramRegistry builds correct number of entries")
+{
+    constexpr auto& entries = MramRegistry<MramLayout>::entries;
+    CHECK(entries.size() == 4);
+}
+
+TEST_CASE("MramRegistry entries match MramTraits")
+{
+    constexpr auto& entries = MramRegistry<MramLayout>::entries;
+
+    CHECK(entries[0].name   == std::string_view("config"));
+    CHECK(entries[0].offset == MramTraits<mram_config_t, MramLayout>::offset);
+    CHECK(entries[0].size   == sizeof(MramRecord<mram_config_t>));
+    CHECK(entries[0].index  == 0);
+
+    CHECK(entries[1].name   == std::string_view("command"));
+    CHECK(entries[1].offset == MramTraits<mram_command_t, MramLayout>::offset);
+    CHECK(entries[1].size   == sizeof(MramRecord<mram_command_t>));
+    CHECK(entries[1].index  == 1);
+
+    CHECK(entries[2].name   == std::string_view("state"));
+    CHECK(entries[2].offset == MramTraits<mram_state_t, MramLayout>::offset);
+    CHECK(entries[2].size   == sizeof(MramRecord<mram_state_t>));
+    CHECK(entries[2].index  == 2);
+
+    CHECK(entries[3].name   == std::string_view("log"));
+    CHECK(entries[3].offset == MramTraits<mram_log_t, MramLayout>::offset);
+    CHECK(entries[3].size   == sizeof(MramRecord<mram_log_t>));
+    CHECK(entries[3].index  == 3);
+}
+
+TEST_CASE("MramRegistry lookup works")
+{
+    using Reg = MramRegistry<MramLayout>;
+
+    auto* e0 = Reg::lookup("config");
+    REQUIRE(e0 != nullptr);
+    CHECK(e0->index == 0);
+
+    auto* e1 = Reg::lookup("command");
+    REQUIRE(e1 != nullptr);
+    CHECK(e1->index == 1);
+
+    auto* e2 = Reg::lookup("state");
+    REQUIRE(e2 != nullptr);
+    CHECK(e2->index == 2);
+
+    auto* e3 = Reg::lookup("log");
+    REQUIRE(e3 != nullptr);
+    CHECK(e3->index == 3);
+
+    auto* missing = Reg::lookup("does_not_exist");
+    CHECK(missing == nullptr);
+}
+
+TEST_CASE("MramRegistry entry sizes match sizeof(MramRecord<T>)")
+{
+    constexpr auto& entries = MramRegistry<MramLayout>::entries;
+
+    CHECK(entries[0].size == sizeof(MramRecord<mram_config_t>));
+    CHECK(entries[1].size == sizeof(MramRecord<mram_command_t>));
+    CHECK(entries[2].size == sizeof(MramRecord<mram_state_t>));
+    CHECK(entries[3].size == sizeof(MramRecord<mram_log_t>));
 }
