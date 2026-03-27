@@ -33,10 +33,10 @@
 #include "GNSS.hpp"
 
 #ifdef __arm__
-#include "usb_device.h"
-#include "usbd_cdc_if.h"
-#include "stm32l4xx_hal.h"
-#elif __x86_64__
+#include "stm32xxxx.h"
+#endif
+
+#ifdef __x86_64__
 #include "mock_hal.h"
 #endif
 

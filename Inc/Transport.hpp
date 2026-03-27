@@ -2,9 +2,10 @@
 #define __TRANSPORT_HPP__
 
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
-#include "usb_device.h"
-#elif __x86_64__
+#include "stm32xxxx.h"
+#endif
+
+#if __x86_64__
 #include "mock_hal.h"
 #endif
 
