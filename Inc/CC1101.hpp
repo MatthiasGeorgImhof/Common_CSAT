@@ -24,10 +24,9 @@
 
 #include "Transport.hpp" // Include the transport layers and concepts
 
-template <typename Transport>
+template <typename Transport, typename CSPin, typename MISOPin>
 	requires RegisterAccessTransport<Transport>
-class CC1101
-{
+class CC1101 {
 public:
 	// -------------------------------------------------------------------------
 	// Nested Types and Enums
@@ -159,7 +158,8 @@ public:
 	// Constructor
 	// -------------------------------------------------------------------------
 
-	explicit CC1101(Transport &transport) : transport_(transport) {}
+explicit CC1101(Transport& transport, CSPin cs, MISOPin miso)
+    : transport_(transport), cs_(cs), miso_(miso) {}
 
 	// -------------------------------------------------------------------------
 	// Public Methods
@@ -196,15 +196,11 @@ public:
 
 	/**
 	 * @brief Send a CC1101 strobe command.
-	 *
-	 * Note: RegisterAccessTransport does not capture return full duplex bytes,
-	 * so this returns 0.
 	 */
-	uint8_t Strobe(StrobeCommand strobe)
+	void Strobe(StrobeCommand strobe)
 	{
 		// Writing a register address with len=0 triggers the command strobe on CC1101
 		transport_.write_reg(static_cast<uint8_t>(strobe), nullptr, 0);
-		return 0;
 	}
 
 	/**
@@ -287,20 +283,15 @@ public:
 
 private:
 	Transport &transport_;
+	CSPin cs_;
+	MISOPin miso_;
 
 	/**
 	 * @brief Software reset using SRES command.
 	 */
 	void Reset()
 	{
-		Strobe(StrobeCommand::SRES);
-		for (volatile int i = 0; i < 1000;)
-		{
-			i = i + 1;
-#if defined(__arm__) || defined(__thumb__)
-			__asm__ volatile("nop");
-#endif
-		}
+		cc1101_hard_reset(transport_, cs_, miso_);
 	}
 
 	// -------------------------------------------------------------------------
@@ -346,3 +337,32 @@ private:
 		{ConfigurationRegister::TEST0, 0x09},
 	};
 };
+
+// -----------------------------------------------------------------------------
+// CC1101 TI-Recommended Reset Sequence (requires CSn + MISO access)
+// -----------------------------------------------------------------------------
+template <typename Transport, typename CSPin, typename MISOPin>
+void cc1101_hard_reset(Transport &t, const CSPin &cs, const MISOPin &miso)
+{
+	cs.high();
+	HAL_Delay(1);
+
+	cs.low();
+	HAL_Delay(1);
+
+	cs.high();
+	HAL_Delay(1);
+
+	cs.low();
+
+	while (miso.read())
+	{
+	}
+
+	uint8_t cmd = 0x30; // SRES
+	t.write_reg(cmd, nullptr, 0);
+
+	while (miso.read())
+	{
+	}
+}
