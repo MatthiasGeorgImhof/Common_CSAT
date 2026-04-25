@@ -14,6 +14,8 @@
 #include "CC1101.hpp"
 #include "CircularBuffer.hpp"
 
+#include "Logger.hpp"
+
 // -----------------------------------------------------------------------------
 // CC1101 Packet Layout
 // [0]     = length (1..61)
@@ -69,7 +71,7 @@ template <typename RADIO, typename TXRing, typename RXRing, typename GD2Pin>
 class CC1101Manager
 {
 public:
-CC1101Manager(RADIO& radio, GD2Pin gd2) : radio_(radio), gd2_(gd2) {}
+CC1101Manager(RADIO& radio, TXRing& tx_ring, RXRing& rx_ring, GD2Pin gd2) : radio_(radio), tx_ring_(tx_ring), rx_ring_(rx_ring), gd2_(gd2) {}
 
     // -------------------------------------------------------------------------
     // Public API: Packet-level TX/RX
@@ -132,8 +134,8 @@ private:
     RADIO& radio_;
     RadioState state_ = RadioState::INIT;
 
-    TXRing tx_ring_;   // CC1101Packet
-    RXRing rx_ring_;   // CC1101Packet
+    TXRing& tx_ring_;   // CC1101Packet
+    RXRing& rx_ring_;   // CC1101Packet
 
     GD2Pin gd2_;
 
@@ -239,6 +241,10 @@ private:
         radio_.Strobe(RADIO::StrobeCommand::STX);
 
         state_ = RadioState::TX_WAIT_END;
+
+        char out[256];
+        uchar_buffer_to_hex(reinterpret_cast<const unsigned char*>(view.payload()), len, out, sizeof(out));
+        log(LOG_LEVEL_DEBUG, "handle_rf_tx %d: %s\r\n", len, out);
     }
 
     void handle_tx_wait_end()

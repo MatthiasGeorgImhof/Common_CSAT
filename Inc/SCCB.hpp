@@ -4,7 +4,7 @@
 #include "GpioPin.hpp"
 
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx.h"
 #elif __x86_64__
 #include "mock_hal.h"
 #endif

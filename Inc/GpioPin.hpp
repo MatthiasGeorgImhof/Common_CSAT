@@ -6,7 +6,7 @@
 #include "mock_hal.h"
 #endif
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx.h"
 #endif
 
 enum class PinState : uint8_t {

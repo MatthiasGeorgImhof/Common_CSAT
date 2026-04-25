@@ -6,7 +6,7 @@
 #include "Logger.hpp"
 
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx_hal.h"
 #else
 #include "mock_hal.h"
 #endif

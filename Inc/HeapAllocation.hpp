@@ -15,7 +15,7 @@
 #include "IRQLock.hpp"
 
 #ifdef __arm____
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx_hal.h"
 #else
 #include "mock_hal.h"
 #endif
@@ -40,16 +40,20 @@ private:
 
 	static void disableCANInterrupts()
 	{
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 		CanTxIrqLock::lock();
 		CanRx0IrqLock::lock();
 		CanRx1IrqLock::lock();
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 	}
 
 	static void enableCANInterrupts()
 	{
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 		CanTxIrqLock::unlock();
 		CanRx0IrqLock::unlock();
 		CanRx1IrqLock::unlock();
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 	}
 
 	static void *safeAllocate(const size_t size)

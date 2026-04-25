@@ -6,7 +6,7 @@
 #include <iostream>
 
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx.h"
 #endif
 
 #ifdef __x86_64__

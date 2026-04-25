@@ -99,7 +99,9 @@ TEST_CASE("Manager initializes radio and enters RX_LISTENING")
 {
     MockGD2Pin gd2;
     MockRadio radio;
-    Manager mgr(radio, gd2);
+    TXRing tx_ring;
+    RXRing rx_ring;
+    Manager mgr(radio, tx_ring, rx_ring, gd2);
 
     mgr.process(); // INIT
 
@@ -113,7 +115,9 @@ TEST_CASE("TX: pushing a packet results in radio TXFIFO write")
 {
     MockGD2Pin gd2;
     MockRadio radio;
-    Manager mgr(radio, gd2);
+    TXRing tx_ring;
+    RXRing rx_ring;
+    Manager mgr(radio, tx_ring, rx_ring, gd2);
 
     mgr.process(); // INIT
     mgr.process(); // RX_LISTENING
@@ -142,7 +146,9 @@ TEST_CASE("RX: valid packet is committed into RX ring")
 {
     MockRadio radio;
     MockGD2Pin gd2;
-    Manager mgr(radio, gd2);
+    TXRing tx_ring;
+    RXRing rx_ring;
+    Manager mgr(radio, tx_ring, rx_ring, gd2);
 
     mgr.process(); // INIT
     mgr.process(); // RX_LISTENING
@@ -175,7 +181,9 @@ TEST_CASE("RX: invalid CRC packet is discarded")
 {
     MockRadio radio;
     MockGD2Pin gd2;
-    Manager mgr(radio, gd2);
+    TXRing tx_ring;
+    RXRing rx_ring;
+    Manager mgr(radio, tx_ring, rx_ring, gd2);
 
     mgr.process(); // INIT
     mgr.process(); // RX_LISTENING

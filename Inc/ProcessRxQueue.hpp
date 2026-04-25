@@ -15,7 +15,9 @@
 #include "Logger.hpp"
 #include "CanTxQueueDrainer.hpp"
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 extern CanTxQueueDrainer tx_drainer;
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 
 constexpr size_t SERIAL_MTU = 640;
 struct SerialFrame
@@ -24,12 +26,14 @@ struct SerialFrame
     uint8_t data[SERIAL_MTU];
 };
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 constexpr size_t CAN_MTU = 8;
 struct CanRxFrame
 {
     CAN_RxHeaderTypeDef header;
     uint8_t data[CAN_MTU];
 };
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 
 template <typename Allocator>
 class LoopManager
@@ -61,6 +65,7 @@ public:
         return all_successful; // Return success status
     }
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
     template <size_t N, typename... Adapters>
     void CanProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, CircularBuffer<CanRxFrame, N> &can_rx_buffer)
     {
@@ -83,6 +88,7 @@ public:
             }
         }
     }
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 
     template <size_t N, typename... Adapters>
     void SerialProcessRxQueue(Cyphal<SerardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, CircularBuffer<SerialFrame, N> &serial_buffer)
@@ -127,10 +133,12 @@ public:
         }
     }
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 	void CanProcessTxQueue(CanardAdapter */*adapter*/, CAN_HandleTypeDef */*hcan*/)
 	{
 		tx_drainer.irq_safe_drain();
 	}
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 };
 
 #endif // RX_PROCESSING_HPP

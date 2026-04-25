@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #ifdef __arm__
-#include "stm32l4xx_hal.h"
+#include "stm32xxxx_hal.h"
 #endif
 #ifdef __x86_64__
 #include "mock_hal.h"

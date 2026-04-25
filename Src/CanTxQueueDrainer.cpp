@@ -3,6 +3,8 @@
 #include "Logger.hpp"
 #include "IRQLock.hpp"
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
+
 CanTxQueueDrainer::CanTxQueueDrainer(CanardAdapter* adapter,
                                      CAN_HandleTypeDef* hcan)
     : adapter_(adapter), hcan_(hcan)
@@ -54,3 +56,5 @@ void CanTxQueueDrainer::irq_safe_drain()
 // #ifdef __x86_64__
 // CanTxQueueDrainer tx_drainer;
 // #endif // __x86_64__
+
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Logger.hpp"
+
 #include "cyphal.hpp"
+#include "canard.h"
 #include "serard.h"
 
 #include "BoxSet.hpp"

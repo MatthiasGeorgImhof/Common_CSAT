@@ -64,10 +64,12 @@ HAL_StatusTypeDef HSClockSwitch::configureHSE()
         .HSIState = RCC_HSI_OFF,
         .HSICalibrationValue = 0,
         .LSIState {},
-        .MSIState {},
-        .MSICalibrationValue {},
-        .MSIClockRange {},
-        .HSI48State {},
+        #if ! defined(STM32F411xE)
+       .MSIState {},
+       .MSICalibrationValue {},
+       .MSIClockRange {},
+       .HSI48State {},
+        #endif // STM32F411xE
         .PLL {
             .PLLState = RCC_PLL_NONE,
             .PLLSource {},
@@ -75,7 +77,9 @@ HAL_StatusTypeDef HSClockSwitch::configureHSE()
             .PLLN {},
             .PLLP {},
             .PLLQ {},
-            .PLLR {}
+            #if ! defined(STM32F411xE)
+           .PLLR {}
+            #endif // STM32F411xE   
         }
     };
 
@@ -114,10 +118,12 @@ HAL_StatusTypeDef HSClockSwitch::configureHSI()
         .HSIState = RCC_HSI_ON,
         .HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT,
         .LSIState {},
-        .MSIState {},
-        .MSICalibrationValue {},
-        .MSIClockRange {},
-        .HSI48State {},
+        #if ! defined(STM32F411xE)
+       .MSIState {},
+       .MSICalibrationValue {},
+       .MSIClockRange {},
+       .HSI48State {},
+        #endif // STM32F411xE
         .PLL {
             .PLLState = RCC_PLL_NONE,
             .PLLSource {},
@@ -125,7 +131,9 @@ HAL_StatusTypeDef HSClockSwitch::configureHSI()
             .PLLN {},
             .PLLP {},
             .PLLQ {},
-            .PLLR {}
+            #if ! defined(STM32F411xE)
+           .PLLR {}
+            #endif // STM32F411xE
         }
     };
 

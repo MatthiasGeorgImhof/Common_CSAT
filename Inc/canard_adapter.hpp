@@ -9,6 +9,8 @@
 #include "BoxSet.hpp"
 #include "CanTxQueueDrainer.hpp"
 
+#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
+
 extern CanTxQueueDrainer tx_drainer;
 
 static_assert(CYPHAL_NODE_ID_UNSET == CANARD_NODE_ID_UNSET, "unset lengths differ");
@@ -130,3 +132,5 @@ public:
 
 // Call the checks *after* the class definition
 static_assert((checkCyphalAdapterAPI<CanardAdapter>(), true), "CanardAdapter fails API check");
+
+#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
