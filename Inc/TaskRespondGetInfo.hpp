@@ -70,7 +70,9 @@ void TaskRespondGetInfo<Adapters...>::handleTaskImpl()
         TaskForServer<CyphalBuffer8, Adapters...>::publish(PAYLOAD_SIZE, payload, &data,
                                             reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_node_GetInfo_Response_1_0_serialize_),
                                             uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, transfer->metadata.remote_node_id, transfer->metadata.transfer_id);
-        log(LOG_LEVEL_DEBUG, "TaskRespondGetInfo: sent response %4d \r\n", transfer->metadata.remote_node_id);
+//        log(LOG_LEVEL_DEBUG, "TaskRespondGetInfo: sent response %4d \r\n", transfer->metadata.remote_node_id);
+        log(LOG_LEVEL_DEBUG, "TaskRespondGetInfo::handleTaskImpl: shared counter %4d\r\n", transfer.use_count());
+
     }
 }
 

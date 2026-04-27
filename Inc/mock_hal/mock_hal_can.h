@@ -10,6 +10,7 @@ extern "C" {
 
 // Include core definitions
 #include "mock_hal/mock_hal_core.h"
+#define MOCK_HAL_CAN_ENABLED
 
 //--- CAN Defines ---
 #define CAN_FILTERMODE_IDMASK       (0x00000000U)  // Identifier mask mode

@@ -11,7 +11,7 @@
 #include "uavcan/file/Read_1_1.h"
 #include "uavcan/file/Error_1_0.h"
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
 class TaskRequestRead : public TaskForClient<CyphalBuffer8, Adapters...>, private TaskPacing
 {
 public:
@@ -66,16 +66,16 @@ protected:
     bool reset_and_fail();
 
     template <typename T, typename... Args>
-    auto make_on_local_heap(Args &&...args)
+    auto make_on_heap(Args &&...args)
     {
-        static SafeAllocator<T, LocalHeap> alloc;
-        return alloc_unique_custom<T, LocalHeap>(alloc, std::forward<Args>(args)...);
+        static SafeAllocator<T, Heap> alloc;
+        return alloc_unique_custom<T, Heap>(alloc, std::forward<Args>(args)...);
     }
 
 protected:
     using ValueBuffer = std::array<uint8_t, uavcan_primitive_Unstructured_1_0_value_ARRAY_CAPACITY_>;
-    using ValueAlloc = SafeAllocator<ValueBuffer, LocalHeap>;
-    using ValuePtr = std::unique_ptr<ValueBuffer, ValueAlloc::Deletor>;
+    using ValueAlloc = SafeAllocator<ValueBuffer, Heap>;
+    using ValuePtr = std::unique_ptr<ValueBuffer, typename ValueAlloc::Deletor>;
 
 protected:
     FileSource &source_;
@@ -84,14 +84,14 @@ protected:
     ValuePtr values_;
 };
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::no_response_available() const
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::no_response_available() const
 {
     return TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty();
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-TaskRequestRead<FileSource, OutputStream, Adapters...>::TransferIDState TaskRequestRead<FileSource, OutputStream, Adapters...>::validate_transfer_id(const std::shared_ptr<CyphalTransfer> &t) const
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::TransferIDState TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::validate_transfer_id(const std::shared_ptr<CyphalTransfer> &t) const
 {
     const uint8_t expected = read_state_.last_transfer_id;
     const uint8_t received = t->metadata.transfer_id;
@@ -117,8 +117,8 @@ TaskRequestRead<FileSource, OutputStream, Adapters...>::TransferIDState TaskRequ
     return TransferIDState::STALE;
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::validate_response(const std::shared_ptr<CyphalTransfer> &t)
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::validate_response(const std::shared_ptr<CyphalTransfer> &t)
 {
     // Only accept CyphalTransferKindResponse
     if (t->metadata.transfer_kind != CyphalTransferKindResponse)
@@ -137,8 +137,8 @@ bool TaskRequestRead<FileSource, OutputStream, Adapters...>::validate_response(c
     return true;
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::validate_state_for_response() const
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::validate_state_for_response() const
 {
     switch (read_state_.state)
     {
@@ -150,8 +150,8 @@ bool TaskRequestRead<FileSource, OutputStream, Adapters...>::validate_state_for_
     }
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-void TaskRequestRead<FileSource, OutputStream, Adapters...>::reset()
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+void TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::reset()
 {
     while (!TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty())
     {
@@ -164,27 +164,27 @@ void TaskRequestRead<FileSource, OutputStream, Adapters...>::reset()
     log(LOG_LEVEL_WARNING, "TaskRequestRead: reset, transfer_id  %d -> %d\r\n", read_state_.last_transfer_id, this->transfer_id_);
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::reset_and_fail()
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::reset_and_fail()
 {
     reset();
     return false;
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-void TaskRequestRead<FileSource, OutputStream, Adapters...>::handleTaskImpl()
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+void TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::handleTaskImpl()
 {
     if (values_ == nullptr)
     {
-        values_ = make_on_local_heap<ValueBuffer>();
+        values_ = make_on_heap<ValueBuffer>();
     }
 
     (void)respond();
     (void)request();
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::respond()
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::respond()
 {
     if (no_response_available())
     {
@@ -291,8 +291,8 @@ bool TaskRequestRead<FileSource, OutputStream, Adapters...>::respond()
     return true;
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-bool TaskRequestRead<FileSource, OutputStream, Adapters...>::request()
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+bool TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::request()
 {
     log(LOG_LEVEL_DEBUG,
         "TaskRequestRead: request() state=%d offset=%u buffer_empty=%d tid=%u\r\n",
@@ -307,7 +307,7 @@ bool TaskRequestRead<FileSource, OutputStream, Adapters...>::request()
         return true;
     }
 
-    auto request_data = make_on_local_heap<uavcan_file_Read_Request_1_1>();
+    auto request_data = make_on_heap<uavcan_file_Read_Request_1_1>();
     switch (read_state_.state)
     {
     case START:
@@ -350,20 +350,20 @@ bool TaskRequestRead<FileSource, OutputStream, Adapters...>::request()
     return true;
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-void TaskRequestRead<FileSource, OutputStream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+void TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->client(uavcan_file_Read_1_1_FIXED_PORT_ID_, task);
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-void TaskRequestRead<FileSource, OutputStream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+void TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->unclient(uavcan_file_Read_1_1_FIXED_PORT_ID_, task);
 }
 
-template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-void TaskRequestRead<FileSource, OutputStream, Adapters...>::update(uint32_t now)
+template <typename Heap, FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
+void TaskRequestRead<Heap, FileSource, OutputStream, Adapters...>::update(uint32_t now)
 {
     Task::update(now);
 }

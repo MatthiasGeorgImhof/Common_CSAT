@@ -25,7 +25,7 @@ struct SerardAdapter
 inline SerardNodeID cyphalNodeIdToSerard(const CyphalNodeID node_id) { return node_id == CYPHAL_NODE_ID_UNSET ? SERARD_NODE_ID_UNSET : static_cast<SerardNodeID>(node_id); }
 inline CyphalNodeID serardNodeIdToCyphal(const SerardNodeID node_id) { return static_cast<CyphalNodeID>(node_id & CYPHAL_NODE_ID_UNSET); }
 inline SerardTransferID cyphalTransferIdToSerard(const CyphalTransferID transfer_id) { return static_cast<SerardTransferID>(transfer_id); }
-inline CyphalTransferID serardTransferIdToCyphal(const SerardTransferID transfer_id) { return wrap_transfer_id(static_cast<CyphalTransferID>(transfer_id)) ; }
+inline CyphalTransferID serardTransferIdToCyphal(const SerardTransferID transfer_id) { return wrap_transfer_id(static_cast<CyphalTransferID>(transfer_id)); }
 
 inline SerardTransferMetadata cyphalMetadataToSerard(const CyphalTransferMetadata metadata)
 {
@@ -105,7 +105,7 @@ public:
     {
         SerardTransferMetadata serard_metadata = cyphalMetadataToSerard(*metadata);
         log(LOG_LEVEL_DEBUG, "serardTxPush at %08u: %3d -> %3d (%4d %3d)\r\n", HAL_GetTick(),
-        		metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
+            metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
         return serardTxPush(adapter_->ins.node_id, &serard_metadata, payload_size, payload, adapter_->user_reference, adapter_->emitter);
     }
 
@@ -132,7 +132,7 @@ public:
 
         setNodeID(node_id_);
         log(LOG_LEVEL_DEBUG, "serardTxForward at %08u: %3d -> %3d (%4d %3d)\r\n", HAL_GetTick(),
-        		metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
+            metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
         return res;
     }
 
@@ -163,9 +163,12 @@ public:
 
     int32_t cyphalRxReceive(size_t *frame_size, const uint8_t *const frame, CyphalTransfer *out_transfer)
     {
-    	log(LOG_LEVEL_DEBUG, "serardRxReceive at %08u: size %d\r\n", HAL_GetTick(), static_cast<uint16_t>(*frame_size));
+        log(LOG_LEVEL_DEBUG, "serardRxReceive at %08u: size %d\r\n", HAL_GetTick(), static_cast<uint16_t>(*frame_size));
+//        char buffer[1024];
+//        uchar_buffer_to_hex(frame, *frame_size, buffer, sizeof(buffer));
+//        // log(LOG_LEVEL_DEBUG, "serardRxReceive frame at %08u: %ld %s\r\n", HAL_GetTick(), *frame_size, buffer);
 
-    	SerardRxSubscription *sub;
+        SerardRxSubscription *sub;
         struct SerardRxTransfer serard_transfer{};
         int8_t result = serardRxAccept(&adapter_->ins, &adapter_->reass, 0, frame_size, frame, 0, &serard_transfer, &sub);
         out_transfer->metadata.priority = static_cast<CyphalPriority>(serard_transfer.metadata.priority);
@@ -178,13 +181,13 @@ public:
         out_transfer->payload = serard_transfer.payload;
         out_transfer->payload_size = serard_transfer.payload_size;
         out_transfer->timestamp_usec = serard_transfer.timestamp_usec;
-        if (result==1)
-        	log(LOG_LEVEL_DEBUG, "serardRxReceive at %08u: %3d -> %3d (%4d %3d [%ld -> %3d]) with residual size %d\r\n", HAL_GetTick(),
-        		out_transfer->metadata.source_node_id, out_transfer->metadata.destination_node_id, out_transfer->metadata.port_id, out_transfer->metadata.transfer_id,
-				static_cast<uint32_t>(serard_transfer.metadata.transfer_id), serardTransferIdToCyphal(serard_transfer.metadata.transfer_id),
-				static_cast<uint16_t>(*frame_size));
+        if (result == 1)
+            log(LOG_LEVEL_DEBUG, "serardRxReceive at %08u: %3d -> %3d (%4d %3d [%ld -> %3d]) with residual size %d\r\n", HAL_GetTick(),
+                out_transfer->metadata.source_node_id, out_transfer->metadata.destination_node_id, out_transfer->metadata.port_id, out_transfer->metadata.transfer_id,
+                static_cast<uint32_t>(serard_transfer.metadata.transfer_id), serardTransferIdToCyphal(serard_transfer.metadata.transfer_id),
+                static_cast<uint16_t>(*frame_size));
         else
-        	log(LOG_LEVEL_DEBUG, "serardRxReceive error at %08u: %2d with residual size %d\r\n", HAL_GetTick(), result, static_cast<uint16_t>(*frame_size));
+            log(LOG_LEVEL_DEBUG, "serardRxReceive error at %08u: %2d with residual size %d\r\n", HAL_GetTick(), result, static_cast<uint16_t>(*frame_size));
         return result;
     }
 };

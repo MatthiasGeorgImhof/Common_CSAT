@@ -10,7 +10,7 @@
 #include "uavcan/file/Error_1_0.h"
 
 
-template <FileAccessConcept Accessor, typename... Adapters>
+template <typename Heap,FileAccessConcept Accessor, typename... Adapters>
 class TaskRespondRead : public TaskForServer<CyphalBuffer8, Adapters...>
 {
 public:
@@ -29,14 +29,14 @@ protected:
     Accessor& accessor_;
 };
 
-template <FileAccessConcept Accessor, typename... Adapters>
-void TaskRespondRead<Accessor, Adapters...>::handleTaskImpl()
+template <typename Heap, FileAccessConcept Accessor, typename... Adapters>
+void TaskRespondRead<Heap, Accessor, Adapters...>::handleTaskImpl()
 {
     (void)respond();
 }
 
-template <FileAccessConcept Accessor, typename... Adapters>
-bool TaskRespondRead<Accessor, Adapters...>::respond()
+template <typename Heap, FileAccessConcept Accessor, typename... Adapters>
+bool TaskRespondRead<Heap, Accessor, Adapters...>::respond()
 {
     if (TaskForServer<CyphalBuffer8, Adapters...>::buffer_.is_empty())
         return true;
@@ -86,14 +86,14 @@ bool TaskRespondRead<Accessor, Adapters...>::respond()
     return true;
 }
 
-template <FileAccessConcept Accessor, typename... Adapters>
-void TaskRespondRead<Accessor, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, FileAccessConcept Accessor, typename... Adapters>
+void TaskRespondRead<Heap, Accessor, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->server(uavcan_file_Read_1_1_FIXED_PORT_ID_, task);
 }
 
-template <FileAccessConcept Accessor, typename... Adapters>
-void TaskRespondRead<Accessor, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, FileAccessConcept Accessor, typename... Adapters>
+void TaskRespondRead<Heap, Accessor, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->unserver(uavcan_file_Read_1_1_FIXED_PORT_ID_, task);
 }

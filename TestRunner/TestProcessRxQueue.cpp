@@ -9,6 +9,9 @@
 #include "SubscriptionManager.hpp"
 #include "ServiceManager.hpp"
 #include "CanTxQueueDrainer.hpp"
+#include "CC1101.hpp"
+#include "CC1101Manager.hpp"
+#include "FrameAssembler.hpp"
 
 CanTxQueueDrainer::CanTxQueueDrainer(CanardAdapter* /*adapter*/, CAN_HandleTypeDef* /*hcan*/) {}
 
@@ -128,8 +131,7 @@ TEST_CASE("processTransfer no forwarding")
 
     ServiceManager service_manager(handlers);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
 
     bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
 
@@ -165,8 +167,7 @@ TEST_CASE("processTransfer with LoopardAdapter")
 
     ServiceManager service_manager(handlers);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
 
     bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
 
@@ -224,8 +225,7 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 
     ServiceManager service_manager(handlers);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
 
     bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
 
@@ -300,8 +300,7 @@ TEST_CASE("CanProcessRxQueue with CanardAdapter and MockTask")
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
     loop_manager.CanProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
 
     CHECK(can_rx_buffer.size() == 0);
@@ -366,8 +365,7 @@ TEST_CASE("CanProcessRxQueue multiple frames")
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
     loop_manager.CanProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
 
     CHECK(can_rx_buffer.size() == 0);
@@ -375,7 +373,7 @@ TEST_CASE("CanProcessRxQueue multiple frames")
     CHECK(allocated_mem == diagnostics.allocated);
 }
 
-TEST_CASE("SerialProcessRxQueue with SerardAdapter and MockTask")
+TEST_CASE("ProcessRxQueue with SerardAdapter and MockTask")
 {
     constexpr CyphalPortID port_id = 123;
     constexpr CyphalNodeID node_id = 11;
@@ -419,16 +417,15 @@ TEST_CASE("SerialProcessRxQueue with SerardAdapter and MockTask")
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
-    loop_manager.SerialProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
+    LoopManager<Heap> loop_manager;
+    loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
 
     CHECK(serial_rx_buffer.size() == 0);
     diagnostics = Heap::getDiagnostics();
     CHECK(allocated_mem == diagnostics.allocated);
 }
 
-TEST_CASE("SerialProcessRxQueue multiple frames with Serard")
+TEST_CASE("ProcessRxQueue multiple frames with Serard")
 {
     constexpr CyphalPortID port_id = 123;
     constexpr CyphalNodeID node_id = 11;
@@ -489,9 +486,8 @@ TEST_CASE("SerialProcessRxQueue multiple frames with Serard")
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
-    loop_manager.SerialProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
+    LoopManager<Heap> loop_manager;
+    loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
 
     CHECK(serial_rx_buffer.size() == 0);
     diagnostics = Heap::getDiagnostics();
@@ -534,8 +530,7 @@ TEST_CASE("LoopProcessRxQueue with LoopardAdapter and MockTask")
 
     adapter.buffer.push(transfer);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
     loop_manager.LoopProcessRxQueue(&cyphal, &service_manager, adapters);
 
     CHECK(adapter.buffer.size() == 0);
@@ -597,8 +592,7 @@ TEST_CASE("LoopProcessRxQueue multiple frames with LoopardAdapter")
     adapter.buffer.push(transfer1);
     adapter.buffer.push(transfer2);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
     loop_manager.LoopProcessRxQueue(&cyphal, &service_manager, adapters);
 
     CHECK(adapter.buffer.size() == 0);
@@ -642,8 +636,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTask")
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
 
     for (int i = 0; i < 13; ++i)
     {
@@ -697,8 +690,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
     handlers.push(TaskHandler{port_id, task1});
     ServiceManager service_manager(handlers);
 
-    SafeAllocator<CyphalTransfer, Heap> alloc;
-    LoopManager loop_manager(alloc);
+    LoopManager<Heap> loop_manager;
 
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
@@ -739,4 +731,76 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
     }
     diagnostics = Heap::getDiagnostics();
     CHECK(diagnostics.allocated == initial_allocated);
+}
+
+std::vector<uint8_t> hexToBytes(const std::string& hex) {
+    std::vector<uint8_t> bytes;
+    std::stringstream ss(hex);
+    std::string byteString;
+
+    while (ss >> byteString) {
+        bytes.push_back(static_cast<uint8_t>(std::stoul(byteString, nullptr, 16)));
+    }
+    return bytes;
+}
+
+TEST_CASE("ProcessRxQueue - Radio Reassembly Integration") {
+
+    // This hex string is the 182-byte message provided in the prompt
+    std::string full_message_hex = "00 04 01 07 79 06 FF FF 56 1D 0C 01 01 01 01 01 01 01 01 01 02 80 01 04 28 59 06 01 01 08 01 02 55 1D 56 1D 01 01 01 03 02 40 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 02 40 01 01 01 01 01 01 01 01 01 02 40 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 02 03 01 01 01 02 40 01 01 01 01 01 01 01 01 01 05 6B 07 24 1E 00";
+
+    // 1. Setup Buffers
+    // Raw fragments from the radio
+    CircularBuffer<CC1101Packet, 10> radio_rx_raw; 
+    // Reassembled frames ready for Cyphal/Serard
+    CircularBuffer<SerialFrame, 10> radio_assembled_frames; 
+
+    // 2. Setup Components
+    SerardMemoryResource serard_memory_resource = {&serard_adapter.ins, Heap::serardMemoryAllocate, Heap::serardMemoryDeallocate};
+    SerardAdapter adapter{};
+    adapter.ins = serardInit(serard_memory_resource, serard_memory_resource);
+    adapter.reass = serardReassemblerInit();
+    Cyphal<SerardAdapter> cyphal(&adapter);
+    cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 7510, 1000, 1000000);
+
+    CyphalTransfer transfer;
+    ArrayList<TaskHandler, RegistrationManager::NUM_TASK_HANDLERS> handlers;
+    auto task = std::make_shared<MockTask>(10, 0, transfer);
+    handlers.push(TaskHandler{123, task});
+
+    LoopManager<Heap> loop_manager;
+    ServiceManager service_manager(handlers);
+    std::tuple<> empty_adapters;
+
+    // The new bridge component
+    FrameAssembler assembler(radio_rx_raw, radio_assembled_frames);
+
+    // 3. Prepare Test Data (The 182-byte fragments)
+    std::vector<uint8_t> binary = hexToBytes(full_message_hex);
+    uint8_t chunk_sizes[] = {51, 51, 51, 29};
+    uint8_t* src_ptr = binary.data();
+
+    // 4. FEED AND PROCESS
+    for (int i = 0; i < 4; ++i) {
+        // Push raw fragment to the raw buffer
+        CC1101Packet& pkt = radio_rx_raw.begin_write();
+        CC1101PacketView view(pkt.data());
+        view.set_len(chunk_sizes[i]);
+        memcpy(view.payload(), src_ptr, chunk_sizes[i]);
+        radio_rx_raw.commit_write();
+        src_ptr += chunk_sizes[i];
+
+        // REASSEMBLY STEP: This moves data from radio_rx_raw to radio_assembled_frames
+        assembler.process();
+
+        // PROCESSING STEP: LoopManager now gets the CORRECT buffer type
+        // This was line 803 in your error log
+        loop_manager.ProcessRxQueue(&cyphal, &service_manager, empty_adapters, radio_assembled_frames);
+
+        if (i < 3) {
+            CHECK(radio_assembled_frames.is_empty()); // Nothing assembled yet
+        } else {
+            CHECK(radio_assembled_frames.is_empty()); // Last packet processed it
+        }
+    }
 }

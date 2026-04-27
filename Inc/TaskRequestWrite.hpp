@@ -12,7 +12,7 @@
 
 #include <cstring>
 
-template <InputStreamConcept InputStream, typename... Adapters>
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
 class TaskRequestWrite : public TaskForClient<CyphalBuffer8, Adapters...>, private TaskPacing
 {
 public:
@@ -94,16 +94,16 @@ protected:
     void restart_transfer();
 
     template <typename T, typename... Args>
-    auto make_on_local_heap(Args &&...args)
+    auto make_on_heap(Args &&...args)
     {
-        static SafeAllocator<T, LocalHeap> alloc;
-        return alloc_unique_custom<T, LocalHeap>(alloc, std::forward<Args>(args)...);
+        static SafeAllocator<T, Heap> alloc;
+        return alloc_unique_custom<T, Heap>(alloc, std::forward<Args>(args)...);
     }
 
 protected:
     using ValueBuffer = std::array<uint8_t, uavcan_primitive_Unstructured_1_0_value_ARRAY_CAPACITY_>;
-    using ValueAlloc = SafeAllocator<ValueBuffer, LocalHeap>;
-    using ValuePtr = std::unique_ptr<ValueBuffer, ValueAlloc::Deletor>;
+    using ValueAlloc = SafeAllocator<ValueBuffer, Heap>;
+    using ValuePtr = std::unique_ptr<ValueBuffer, typename ValueAlloc::Deletor>;
 
 protected:
     InputStream &stream_;
@@ -114,8 +114,8 @@ protected:
     size_t num_values_;
 };
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::reset()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::reset()
 {
     while (!TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty()) 
     {
@@ -130,25 +130,25 @@ void TaskRequestWrite<InputStream, Adapters...>::reset()
     TaskPacing::sleep(*this);
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::handleTaskImpl()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::handleTaskImpl()
 {
     if (values_ == nullptr)
     {
-        values_ = make_on_local_heap<ValueBuffer>();
+        values_ = make_on_heap<ValueBuffer>();
     }
     (void)respond();
     (void)request();
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::no_response_available() const
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::no_response_available() const
 {
     return TaskForClient<CyphalBuffer8, Adapters...>::buffer_.is_empty();
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::handle_timeout_or_wait()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::handle_timeout_or_wait()
 {
     if (HAL_GetTick() < write_state_.timeout)
         return true;  // still waiting
@@ -164,14 +164,14 @@ bool TaskRequestWrite<InputStream, Adapters...>::handle_timeout_or_wait()
     return false; // signal request() to resend
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-std::shared_ptr<CyphalTransfer> TaskRequestWrite<InputStream, Adapters...>::pop_response()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+std::shared_ptr<CyphalTransfer> TaskRequestWrite<Heap, InputStream, Adapters...>::pop_response()
 {
     return TaskForClient<CyphalBuffer8, Adapters...>::buffer_.pop();
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::validate_response(const std::shared_ptr<CyphalTransfer>& t)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::validate_response(const std::shared_ptr<CyphalTransfer>& t)
 {
     // Only accept CyphalTransferKindResponse
     if (t->metadata.transfer_kind != CyphalTransferKindResponse)
@@ -190,8 +190,8 @@ bool TaskRequestWrite<InputStream, Adapters...>::validate_response(const std::sh
     return true;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-TaskRequestWrite<InputStream, Adapters...>::TransferIDState TaskRequestWrite<InputStream, Adapters...>::validate_transfer_id(const std::shared_ptr<CyphalTransfer>& t) const
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+TaskRequestWrite<Heap, InputStream, Adapters...>::TransferIDState TaskRequestWrite<Heap, InputStream, Adapters...>::validate_transfer_id(const std::shared_ptr<CyphalTransfer>& t) const
 {
     const uint8_t expected = write_state_.last_transfer_id;
     const uint8_t received = t->metadata.transfer_id;
@@ -217,8 +217,8 @@ TaskRequestWrite<InputStream, Adapters...>::TransferIDState TaskRequestWrite<Inp
     return TransferIDState::STALE;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::deserialize_response(const std::shared_ptr<CyphalTransfer>& t, uavcan_file_Write_Response_1_1& out)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::deserialize_response(const std::shared_ptr<CyphalTransfer>& t, uavcan_file_Write_Response_1_1& out)
 {
     size_t payload_size = t->payload_size;
     int8_t res = uavcan_file_Write_Response_1_1_deserialize_( &out, static_cast<const uint8_t*>(t->payload), &payload_size);
@@ -230,8 +230,8 @@ bool TaskRequestWrite<InputStream, Adapters...>::deserialize_response(const std:
     return false;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::validate_state_for_response() const
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::validate_state_for_response() const
 {
     switch (write_state_.state)
     {
@@ -245,8 +245,8 @@ bool TaskRequestWrite<InputStream, Adapters...>::validate_state_for_response() c
     }
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::handle_response_code(const uavcan_file_Write_Response_1_1& data)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::handle_response_code(const uavcan_file_Write_Response_1_1& data)
 {
     const bool ok = (data._error.value == uavcan_file_Error_1_0_OK);
 
@@ -277,8 +277,8 @@ bool TaskRequestWrite<InputStream, Adapters...>::handle_response_code(const uavc
 }
 
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::respond()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::respond()
 {
     log(LOG_LEVEL_DEBUG, "TaskRequestWrite: respond() in state %d offset=%d last_tid=%d tries=%d\r\n", write_state_.state, write_state_.offset, write_state_.last_transfer_id, write_state_.num_tries);
 
@@ -327,8 +327,8 @@ bool TaskRequestWrite<InputStream, Adapters...>::respond()
 }
 
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::send_init_request(uavcan_file_Write_Request_1_1 *data, size_t num_values)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::send_init_request(uavcan_file_Write_Request_1_1 *data, size_t num_values)
 {
     data->data.value.count = num_values;
     data->path.path.count = NAME_LENGTH;
@@ -337,8 +337,8 @@ void TaskRequestWrite<InputStream, Adapters...>::send_init_request(uavcan_file_W
     write_state_.state = WAIT_INIT;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::send_transfer_request(uavcan_file_Write_Request_1_1 *data, size_t num_values)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::send_transfer_request(uavcan_file_Write_Request_1_1 *data, size_t num_values)
 {
     data->data.value.count = num_values;
     data->path.path.count = NAME_LENGTH;
@@ -347,8 +347,8 @@ void TaskRequestWrite<InputStream, Adapters...>::send_transfer_request(uavcan_fi
     write_state_.state = WAIT_TRANSFER;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::send_done_request(uavcan_file_Write_Request_1_1 *data)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::send_done_request(uavcan_file_Write_Request_1_1 *data)
 {
     data->data.value.count = 0;
     data->path.path.count = NAME_LENGTH;
@@ -356,14 +356,14 @@ void TaskRequestWrite<InputStream, Adapters...>::send_done_request(uavcan_file_W
     write_state_.state = WAIT_DONE;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::should_restart_transfer() const
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::should_restart_transfer() const
 {
     return write_state_.num_tries > MAX_NUM_TRIES;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::restart_transfer()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::restart_transfer()
 {
     log(LOG_LEVEL_ERROR, "TaskRequestWrite: retry budget exceeded, restarting transfer\r\n");
     write_state_.state = SEND_INIT;
@@ -371,15 +371,15 @@ void TaskRequestWrite<InputStream, Adapters...>::restart_transfer()
     write_state_.num_tries = 0;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::reset_and_fail()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::reset_and_fail()
 {
     reset();
     return false;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-bool TaskRequestWrite<InputStream, Adapters...>::request()
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+bool TaskRequestWrite<Heap, InputStream, Adapters...>::request()
 {
     log(LOG_LEVEL_DEBUG, "TaskRequestWrite: request in state %d\r\n", write_state_.state);
 
@@ -396,7 +396,7 @@ bool TaskRequestWrite<InputStream, Adapters...>::request()
         TaskPacing::operate(*this);
     }
 
-    auto data = make_on_local_heap<uavcan_file_Write_Request_1_1>();
+    auto data = make_on_heap<uavcan_file_Write_Request_1_1>();
 
     log(LOG_LEVEL_DEBUG, "TaskRequestWrite: request in state %d\r\n", write_state_.state);
     switch (write_state_.state)
@@ -493,20 +493,20 @@ bool TaskRequestWrite<InputStream, Adapters...>::request()
     return true;
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->client(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->unclient(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
 }
 
-template <InputStreamConcept InputStream, typename... Adapters>
-void TaskRequestWrite<InputStream, Adapters...>::update(uint32_t now)
+template <typename Heap, InputStreamConcept InputStream, typename... Adapters>
+void TaskRequestWrite<Heap, InputStream, Adapters...>::update(uint32_t now)
 {
     Task::update(now);
 }

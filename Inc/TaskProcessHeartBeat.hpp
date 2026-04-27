@@ -57,7 +57,7 @@ void TaskProcessHeartBeat<Adapters...>::handleTaskImpl()
         size_t payload_size = transfer->payload_size;
         uavcan_node_Heartbeat_1_0 heart_beat{};
         uavcan_node_Heartbeat_1_0_deserialize_(&heart_beat, (const uint8_t *) transfer->payload, &payload_size);
-		log(LOG_LEVEL_DEBUG, "TaskProcessHeartBeat %d: %d\r\n", transfer->metadata.remote_node_id, heart_beat.uptime);
+		log(LOG_LEVEL_DEBUG, "TaskProcessHeartBeat %d: %d shared counter %d\r\n", transfer->metadata.remote_node_id, heart_beat.uptime, transfer.use_count());
     }
 }
 

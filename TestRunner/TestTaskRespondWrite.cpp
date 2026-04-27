@@ -21,6 +21,8 @@
 #include "uavcan/primitive/Unstructured_1_0.h"
 #include "imagebuffer/image.hpp"
 
+using LocalHeap = HeapAllocation<65536>;
+
 class MockBuffer
 {
 public:
@@ -155,31 +157,31 @@ private:
 };
 
 // Class to expose protected members for testing
-template <typename ImageInputStream, typename... Adapters>
-class MockTaskRequestWrite : public TaskRequestWrite<ImageInputStream, Adapters...>
+template <typename Heap, typename ImageInputStream, typename... Adapters>
+class MockTaskRequestWrite : public TaskRequestWrite<Heap, ImageInputStream, Adapters...>
 {
 public:
     MockTaskRequestWrite(ImageInputStream &metadata_producer, uint32_t sleep_interval, uint32_t operate_interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters)
-        : TaskRequestWrite<ImageInputStream, Adapters...>(metadata_producer, sleep_interval, operate_interval, tick, node_id, transfer_id, adapters)
+        : TaskRequestWrite<Heap, ImageInputStream, Adapters...>(metadata_producer, sleep_interval, operate_interval, tick, node_id, transfer_id, adapters)
     {
     }
 
-    using TaskRequestWrite<ImageInputStream, Adapters...>::handleTaskImpl;
-    using TaskRequestWrite<ImageInputStream, Adapters...>::buffer_;
+    using TaskRequestWrite<Heap, ImageInputStream, Adapters...>::handleTaskImpl;
+    using TaskRequestWrite<Heap, ImageInputStream, Adapters...>::buffer_;
 };
 
 // Class to expose protected members for testing
-template <OutputStreamConcept Stream, typename... Adapters>
-class MockTaskRespondWrite : public TaskRespondWrite<Stream, Adapters...>
+template <typename Heap, typename ImageInputStream, typename... Adapters>
+class MockTaskRespondWrite : public TaskRespondWrite<Heap, ImageInputStream, Adapters...>
 {
 public:
-    MockTaskRespondWrite(Stream &stream, uint32_t interval, uint32_t tick, std::tuple<Adapters...> &adapters)
-        : TaskRespondWrite<Stream, Adapters...>(stream, interval, tick, adapters)
+    MockTaskRespondWrite(ImageInputStream &metadata_producer, uint32_t interval, uint32_t tick, std::tuple<Adapters...> &adapters)
+        : TaskRespondWrite<Heap, ImageInputStream, Adapters...>(metadata_producer, interval, tick, adapters)
     {
     }
 
-    using TaskRespondWrite<Stream, Adapters...>::handleTaskImpl;
-    using TaskRespondWrite<Stream, Adapters...>::buffer_;
+    using TaskRespondWrite<Heap, ImageInputStream, Adapters...>::handleTaskImpl;
+    using TaskRespondWrite<Heap, ImageInputStream, Adapters...>::buffer_;
 };
 
 uavcan_file_Write_Response_1_1 unpackResponse(std::shared_ptr<CyphalTransfer> transfer)
@@ -231,8 +233,10 @@ TEST_CASE("TaskRequestWrite - TaskRequestWrite: Handles small write")
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
-    MockTaskRequestWrite task_request(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
-    MockTaskRespondWrite task_response(output, interval, tick, adapters);
+    using Reader = MockTaskRequestWrite<LocalHeap, MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>;
+    using Responder = MockTaskRespondWrite<LocalHeap, TrivialOutputStream, Cyphal<LoopardAdapter>>;
+    Reader task_request(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
+    Responder task_response(output, interval, tick, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data(24);
@@ -334,8 +338,10 @@ TEST_CASE("TaskRequestWrite - TaskRequestWrite: Handles large write")
     uint32_t tick = 0;
     uint32_t interval = 1000;
 
-    MockTaskRequestWrite task_request(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
-    MockTaskRespondWrite task_response(output, interval, tick, adapters);
+    using Reader = MockTaskRequestWrite<LocalHeap, MockImageInputStream<MockBuffer>, Cyphal<LoopardAdapter>>;
+    using Responder = MockTaskRespondWrite<LocalHeap, TrivialOutputStream, Cyphal<LoopardAdapter>>;
+    Reader task_request(mock_stream, interval, interval, tick, node_id, transfer_id, adapters);
+    Responder task_response(output, interval, tick, adapters);
 
     // Prepare test data and metadata
     std::vector<uint8_t> test_data(400);
@@ -446,7 +452,7 @@ TEST_CASE("TaskRespondWrite registers and unregisters as a server")
     TrivialOutputStream output;
 
     // Create the task
-    auto task = std::make_shared<MockTaskRespondWrite<TrivialOutputStream, Cyphal<LoopardAdapter>>>(
+    auto task = std::make_shared<MockTaskRespondWrite<LocalHeap, TrivialOutputStream, Cyphal<LoopardAdapter>>>(
         output,
         /*interval*/ 1000,
         /*tick*/ 0,

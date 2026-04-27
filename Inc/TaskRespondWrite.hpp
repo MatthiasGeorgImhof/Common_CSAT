@@ -11,7 +11,7 @@
 
 #include <cstring>
 
-template <OutputStreamConcept Stream, typename... Adapters>
+template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
 class TaskRespondWrite : public TaskForServer<CyphalBuffer8, Adapters...>
 {
 public:
@@ -28,8 +28,8 @@ private:
 
 };
 
-template <OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Stream, Adapters...>::handleTaskImpl()
+template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
+void TaskRespondWrite<Heap, Stream, Adapters...>::handleTaskImpl()
 {
     if (TaskForServer<CyphalBuffer8, Adapters...>::buffer_.is_empty())
     {
@@ -67,14 +67,14 @@ void TaskRespondWrite<Stream, Adapters...>::handleTaskImpl()
     }
 }
 
-template <OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Stream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
+void TaskRespondWrite<Heap, Stream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->server(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
 }
 
-template <OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Stream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
+void TaskRespondWrite<Heap, Stream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
 {
     manager->unserver(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
 }

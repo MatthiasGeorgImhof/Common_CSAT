@@ -26,7 +26,6 @@ constexpr size_t O1HEAP_SIZE = 16384;
 uint8_t o1heap_buffer[O1HEAP_SIZE] __attribute__((aligned(O1HEAP_ALIGNMENT)));
 O1HeapInstance *o1heap;
 
-// Add this small heap adapter for SafeAllocator
 struct LocalHeap
 {
     static void *heapAllocate(void * /*handle*/, const size_t amount)
@@ -37,6 +36,12 @@ struct LocalHeap
     static void heapFree(void * /*handle*/, void *pointer)
     {
         o1heapFree(o1heap, pointer);
+    }
+
+    // Add this so ManagedCyphalTransfer destructor can clean up payloads
+    static void serardMemoryDeallocate(void* /*ref*/, size_t /*sz*/, void* ptr)
+    {
+        o1heapFree(o1heap, ptr);
     }
 };
 
@@ -166,8 +171,7 @@ TEST_CASE("TaskMainLoop: TaskSendHeartBeat TaskBlinkLED TaskCheckMemory")
     subscription_manager.subscribe<SubscriptionManager::RequestTag>(registration_manager.getServers(), adapters);
     subscription_manager.subscribe<SubscriptionManager::ResponseTag>(registration_manager.getClients(), adapters);
 
-    SafeAllocator<CyphalTransfer, LocalHeap> allocator;
-    LoopManager loop_manager(allocator);
+    LoopManager<LocalHeap> loop_manager;
 
     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
     clear_uart_tx_buffer();
@@ -179,7 +183,7 @@ TEST_CASE("TaskMainLoop: TaskSendHeartBeat TaskBlinkLED TaskCheckMemory")
     {
         HAL_SetTick(tick);
         log(LOG_LEVEL_TRACE, "while loop: %d\r\n", HAL_GetTick());
-        loop_manager.SerialProcessRxQueue(&serard_cyphal, &service_manager, adapters, serial_buffer);
+        loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, adapters, serial_buffer);
         loop_manager.LoopProcessRxQueue(&loopard_cyphal, &service_manager, adapters);
         service_manager.handleServices();
 

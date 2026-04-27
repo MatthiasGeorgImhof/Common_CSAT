@@ -1,7 +1,10 @@
+// cyphal.hpp - Cyphal data structures and utilities
 #pragma once
 
 #include <cstdint>
 #include <cstddef>
+
+#include "heapallocation.hpp"
 
 #define CYPHAL_ERROR_ARGUMENT 2
 #define CYPHAL_ERROR_MEMORY 3
@@ -60,6 +63,22 @@ typedef struct CyphalTransfer
     size_t payload_size;
     void *payload;
 } CyphalTransfer;
+
+template <typename Heap>
+struct ManagedCyphalTransfer : public CyphalTransfer {
+    ManagedCyphalTransfer() : CyphalTransfer{} {} 
+    
+    ManagedCyphalTransfer(const CyphalTransfer& other) : CyphalTransfer(other) {}
+
+    // The destructor now owns the responsibility of freeing the payload
+    ~ManagedCyphalTransfer() {
+        if (payload) {
+            // We use the static method from LocalHeap (HeapAllocation) 
+            // to return the buffer to o1heap.
+            Heap::heapFree(nullptr, const_cast<void*>(payload));
+        }
+    }
+};
 
 typedef struct CyphalSubscription
 {

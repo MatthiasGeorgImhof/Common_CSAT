@@ -1,8 +1,8 @@
 #ifndef IRQ_LOCK_H
 #define IRQ_LOCK_H
 
-#ifdef __arm____
-#include "stm32xxxx_hal.h"
+#ifdef __arm__
+#include "stm32xxxx.h"
 #else
 #include "mock_hal.h"
 #endif

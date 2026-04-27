@@ -10,6 +10,8 @@
 #include <vector>
 #include <cstring>
 
+using LocalHeap = HeapAllocation<65536>;
+
 using Buffer = TrivialImageBuffer<1024>;
 
 // ------------------------------------------------------------
@@ -64,11 +66,11 @@ struct TestCyphalTransfer : public CyphalTransfer
 // ------------------------------------------------------------
 // MockTaskRequestWrite: exposes state + injectOkResponse()
 // ------------------------------------------------------------
-template <typename InputStream, typename... Adapters>
-class MockTaskRequestWrite : public TaskRequestWrite<InputStream, Adapters...>
+template <typename LocalHeap, typename InputStream, typename... Adapters>
+class MockTaskRequestWrite : public TaskRequestWrite<LocalHeap, InputStream, Adapters...>
 {
 public:
-    using Base = TaskRequestWrite<InputStream, Adapters...>;
+    using Base = TaskRequestWrite<LocalHeap, InputStream, Adapters...>;
     using State = typename Base::State;
 
     MockTaskRequestWrite(InputStream &stream,
@@ -139,6 +141,7 @@ static ImageMetadata make_meta(uint32_t payload_size)
 TEST_CASE("TaskRequestWrite end-to-end with Buffer")
 {
     using Writer = MockTaskRequestWrite<
+        LocalHeap,
         ImageInputStream<Buffer>,
         DummyAdapter &>;
 
@@ -272,7 +275,7 @@ private:
 // ------------------------------------------------------------
 TEST_CASE("Full pipeline: MockTaskMLX90640 → Buffer → ImageInputStream → TaskRequestWrite")
 {
-    using Writer = MockTaskRequestWrite<ImageInputStream<Buffer>, DummyAdapter &>;
+    using Writer = MockTaskRequestWrite<LocalHeap, ImageInputStream<Buffer>, DummyAdapter &>;
 
     LocalHeap::initialize();
 

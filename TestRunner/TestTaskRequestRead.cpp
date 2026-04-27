@@ -22,28 +22,19 @@
 #include "uavcan/file/Error_1_0.h"
 // Helper Files
 
+using LocalHeap = HeapAllocation<65536>;
+
 void *loopardMemoryAllocate(size_t amount) { return static_cast<void *>(malloc(amount)); };
 void loopardMemoryFree(void *pointer) { free(pointer); };
 
-// // Class to expose protected members for testing
-// template <FileSourceConcept FileSource, OutputStreamConcept OutputStream, typename... Adapters>
-// class MockTaskRequestRead : public TaskRequestRead<OutputStream, Adapters...>
-// {
-// public:
-//     MockTaskRequestRead(FileSource &source, OutputStream &output, uint32_t interval, uint32_t tick, CyphalNodeID node_id, CyphalTransferID transfer_id, std::tuple<Adapters...> &adapters) : TaskRequestRead<FileSource, OutputStream, Adapters...>(source, interval, tick, node_id, transfer_id, adapters) {}
-
-//     using TaskRequestRead<FileSource, OutputStream, Adapters...>::handleTaskImpl;
-//     using TaskRequestRead<FileSource, OutputStream, Adapters...>::buffer_;
-// };
-
 // Class to expose protected members for testing
-template <FileAccessConcept Accessor, typename... Adapters>
-class RespondWithError : public TaskRespondRead<Accessor, Adapters...>
+template <typename Heap, FileAccessConcept Accessor, typename... Adapters>
+class RespondWithError : public TaskRespondRead<Heap, Accessor, Adapters...>
 {
 public:
     RespondWithError() = delete;
     RespondWithError(Accessor& accessor, uint32_t interval, uint32_t tick, std::tuple<Adapters...> &adapters)
-        : TaskRespondRead<Accessor, Adapters...>(accessor, interval, tick, adapters) {}
+        : TaskRespondRead<Heap, Accessor, Adapters...>(accessor, interval, tick, adapters) {}
 
     void handleTaskImpl()
     {
@@ -239,8 +230,10 @@ TEST_CASE("TaskRequestRead - Handles a simple Read Request")
     MockOutputStream output_stream;
     MockAccessor accessor;
 
-    TaskRequestRead request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
-    TaskRespondRead respond(accessor, 1000, 0, adapters);
+    using Reader = TaskRequestRead<LocalHeap, MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>;
+    using Responder = TaskRespondRead<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>;
+    Reader request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
+    Responder respond(accessor, 1000, 0, adapters);
     request.handleTaskImpl();
     CHECK(output_stream.getReceivedData().size() == 0);
 
@@ -319,9 +312,13 @@ TEST_CASE("TaskRequestRead - Handles a Read Request with Errors")
     MockOutputStream output_stream;
     MockAccessor accessor;
 
-    TaskRequestRead request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
-    TaskRespondRead respond(accessor, 1000, 0, adapters);
-    RespondWithError error(accessor, 1000, 0, adapters);
+    using Reader = TaskRequestRead<LocalHeap, MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>;
+    using Responder = TaskRespondRead<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>;
+using ErrorResponder = RespondWithError<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>;
+
+    Reader request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
+    Responder respond(accessor, 1000, 0, adapters);
+    ErrorResponder error(accessor, 1000, 0, adapters);
     request.handleTaskImpl();
     CHECK(output_stream.getReceivedData().size() == 0);
 
@@ -433,8 +430,11 @@ TEST_CASE("TaskRequestRead - Handles a short file")
     std::tuple<Cyphal<LoopardAdapter>> adapters(loopard_cyphal);
     MockAccessor accessor(size);
 
-    TaskRequestRead request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
-    TaskRespondRead respond(accessor, 1000, 0, adapters);
+    using Reader = TaskRequestRead<LocalHeap, MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>;
+    using Responder = TaskRespondRead<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>;
+
+    Reader request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
+    Responder respond(accessor, 1000, 0, adapters);
 
     // Act
     request.handleTaskImpl();
@@ -480,8 +480,11 @@ TEST_CASE("TaskRequestRead - Handles a zero-length file")
     std::tuple<Cyphal<LoopardAdapter>> adapters(loopard_cyphal);
     MockAccessor accessor(0);
 
-    TaskRequestRead request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
-    TaskRespondRead respond(accessor, 1000, 0, adapters);
+    using Reader = TaskRequestRead<LocalHeap, MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>;
+    using Responder = TaskRespondRead<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>;
+
+    Reader request(file_source, output_stream, 1000, 100, 0, 11, 7, adapters);
+    Responder respond(accessor, 1000, 0, adapters);
 
     // Act
     request.handleTaskImpl();
@@ -525,7 +528,7 @@ TEST_CASE("TaskRequestRead: Registers and Unregisters correctly")
 
     RegistrationManager reg;
 
-    auto task = std::make_shared<TaskRequestRead<MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>>(
+    auto task = std::make_shared<TaskRequestRead<LocalHeap, MockFileSource, MockOutputStream, Cyphal<LoopardAdapter>>>(
         file_source, output_stream, interval, interval, tick, node_id, transfer_id, adapters);
 
     CHECK(reg.getClients().size() == 0);
@@ -564,7 +567,7 @@ TEST_CASE("TaskRespondRead: Registers and Unregisters correctly")
 
     RegistrationManager reg;
 
-    auto task = std::make_shared<TaskRespondRead<MockAccessor, Cyphal<LoopardAdapter>>>(
+    auto task = std::make_shared<TaskRespondRead<LocalHeap, MockAccessor, Cyphal<LoopardAdapter>>>(
         accessor, interval, tick, adapters);
 
     CHECK(reg.getServers().size() == 0);

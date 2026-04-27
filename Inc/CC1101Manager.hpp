@@ -194,10 +194,15 @@ private:
 
         // Reserve slot in RX ring
         CC1101Packet& slot = rx_ring_.begin_write();
-        CC1101PacketView pkt(slot.data());
 
         // Read raw CC1101 FIFO into slot
         radio_.ReadBurst(RADIO::BurstRegister::RXFIFO, slot.data(), bytesInFifo);
+
+        // char buffer[1024];
+        // uchar_buffer_to_hex(slot.data()+1, slot[0], buffer, sizeof(buffer));
+        // log(LOG_LEVEL_DEBUG, "handle_rf_read frame at %08u: %s\r\n", HAL_GetTick(), buffer);
+
+        CC1101PacketView pkt(slot.data());
 
         uint8_t len = pkt.len();
         if (len == 0 || len > 61)
@@ -242,9 +247,9 @@ private:
 
         state_ = RadioState::TX_WAIT_END;
 
-        char out[256];
-        uchar_buffer_to_hex(reinterpret_cast<const unsigned char*>(view.payload()), len, out, sizeof(out));
-        log(LOG_LEVEL_DEBUG, "handle_rf_tx %d: %s\r\n", len, out);
+        // char out[256];
+        // uchar_buffer_to_hex(reinterpret_cast<const unsigned char*>(view.payload()), len, out, sizeof(out));
+        // log(LOG_LEVEL_DEBUG, "handle_rf_tx %d: %s\r\n", len, out);
     }
 
     void handle_tx_wait_end()

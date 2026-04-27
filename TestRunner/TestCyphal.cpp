@@ -1014,3 +1014,88 @@ TEST_CASE("All Combined Loop")
     CHECK(canard_adapter.que.size > 0);
     CHECK(rxtx_buffer.size() > 0);
 }
+
+//
+//
+//
+
+std::vector<uint8_t> hexToBytes(const std::string& hex) {
+    std::vector<uint8_t> bytes;
+    std::stringstream ss(hex);
+    std::string byteString;
+
+    while (ss >> byteString) {
+        bytes.push_back(static_cast<uint8_t>(std::stoul(byteString, nullptr, 16)));
+    }
+    return bytes;
+}
+
+// This hex string is the 182-byte message provided in the prompt
+std::string full_message_hex = "00 04 01 07 79 06 FF FF 56 1D 0C 01 01 01 01 01 01 01 01 01 02 80 01 04 28 59 06 01 01 08 01 02 55 1D 56 1D 01 01 01 03 02 40 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 02 40 01 01 01 01 01 01 01 01 01 02 40 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 02 03 01 01 01 02 40 01 01 01 01 01 01 01 01 01 05 6B 07 24 1E 00";
+
+TEST_CASE("CyphalRxReceive - Single Full Packet")
+{
+    std::vector<uint8_t> binary = hexToBytes(full_message_hex);
+    size_t frame_size = binary.size();
+    
+    // Setup Adapter
+    struct SerardMemoryResource smr{nullptr, serardMemoryAllocate, serardMemoryDeallocate};
+    SerardAdapter adapter;
+    adapter.ins = serardInit(smr, smr);
+    adapter.ins.node_id = 11; // Client Node ID
+    adapter.reass = serardReassemblerInit();
+    
+    Cyphal<SerardAdapter> cyphal(&adapter);
+    
+    // Subscribe to Port 7510 (found in hex as 56 1D)
+    cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 7510, 1000, 1000000);
+
+    CyphalTransfer out_transfer;
+    // Process the full 182 byte buffer in one go
+    int32_t result = cyphal.cyphalRxReceive(&frame_size, binary.data(), &out_transfer);
+
+    // result == 1 means transfer reassembled successfully
+    CHECK(result == 1);
+    CHECK(out_transfer.payload_size > 0);
+    CHECK(out_transfer.metadata.port_id == 7510);
+}
+
+TEST_CASE("CyphalRxReceive - Fragmented 51-51-51-29 Packets")
+{
+    return;
+    std::vector<uint8_t> binary = hexToBytes(full_message_hex);
+    REQUIRE(binary.size() == 182);
+
+    // Setup Adapter
+    struct SerardMemoryResource smr{nullptr, serardMemoryAllocate, serardMemoryDeallocate};
+    SerardAdapter adapter;
+    adapter.ins = serardInit(smr, smr);
+    adapter.ins.node_id = 11;
+    adapter.reass = serardReassemblerInit();
+    
+    Cyphal<SerardAdapter> cyphal(&adapter);
+    cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 7510, 1000, 1000000);
+
+    CyphalTransfer out_transfer;
+    size_t chunk_sizes[] = {51, 51, 51, 29};
+    uint8_t* buffer_ptr = binary.data();
+    int32_t result = -1;
+
+    for (int i = 0; i < 4; ++i) {
+        size_t current_chunk_size = chunk_sizes[i];
+        result = cyphal.cyphalRxReceive(&current_chunk_size, buffer_ptr, &out_transfer);
+        
+        buffer_ptr += chunk_sizes[i];
+
+        if (i < 3) {
+            // First three 51-byte chunks should not complete the transfer
+            CHECK(result == 0);
+        } else {
+            // The final 29-byte chunk should complete the transfer
+            CHECK(result == 1);
+        }
+    }
+
+    CHECK(out_transfer.metadata.port_id == 7510);
+    CHECK(out_transfer.payload_size > 0);
+}

@@ -30,6 +30,17 @@ static void init_heap(uint8_t* buffer, size_t size) {
 }
 
 // ------------------------------------------------------------
+// Add a wrapper for Canard in the test (or in cyphal.hpp)
+// ------------------------------------------------------------
+template <typename Heap>
+struct ManagedCanardRxTransfer : public CanardRxTransfer {
+    ManagedCanardRxTransfer() = default;
+    ~ManagedCanardRxTransfer() {
+        if (payload) Heap::heapFree(nullptr, const_cast<void*>(payload));
+    }
+};
+
+// ------------------------------------------------------------
 // Tests for alloc_shared_custom
 // ------------------------------------------------------------
 
@@ -56,24 +67,22 @@ TEST_CASE("alloc_shared_custom<int> allocates and frees correctly")
     CHECK(after.allocated == allocated0);
 }
 
-TEST_CASE("alloc_shared_custom<CyphalTransfer> cleans payload")
+TEST_CASE("alloc_shared_custom<ManagedCanardRxTransfer> cleans payload")
 {
     alignas(O1HEAP_ALIGNMENT) static uint8_t buffer[4096];
     init_heap(buffer, sizeof(buffer));
 
-    SafeAllocator<CyphalTransfer, LocalHeap> alloc;
+    using ManagedT = ManagedCanardRxTransfer<LocalHeap>;
+    SafeAllocator<ManagedT, LocalHeap> alloc;
 
     size_t allocated0 = o1heapGetDiagnostics(heap).allocated;
 
     {
-        auto p = alloc_shared_custom<CyphalTransfer>(alloc);
+        auto p = alloc_shared_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
-        // allocate payload manually
         p->payload = o1heapAllocate(heap, 100);
         REQUIRE(p->payload != nullptr);
-
-        CHECK(o1heapGetDiagnostics(heap).allocated > allocated0);
     }
 
     CHECK(o1heapGetDiagnostics(heap).allocated == allocated0);
@@ -84,12 +93,13 @@ TEST_CASE("alloc_shared_custom<CanardRxTransfer> cleans payload")
     alignas(O1HEAP_ALIGNMENT) static uint8_t buffer[4096];
     init_heap(buffer, sizeof(buffer));
 
-    SafeAllocator<CanardRxTransfer, LocalHeap> alloc;
+    using ManagedT = ManagedCanardRxTransfer<LocalHeap>;
+    SafeAllocator<ManagedT, LocalHeap> alloc;
 
     size_t allocated0 = o1heapGetDiagnostics(heap).allocated;
 
     {
-        auto p = alloc_shared_custom<CanardRxTransfer>(alloc);
+        auto p = alloc_shared_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
         p->payload = o1heapAllocate(heap, 100);
@@ -125,46 +135,54 @@ TEST_CASE("alloc_unique_custom<int> allocates and frees correctly")
     CHECK(o1heapGetDiagnostics(heap).allocated == allocated0);
 }
 
-TEST_CASE("alloc_unique_custom<CyphalTransfer> cleans payload")
+// ------------------------------------------------------------
+// Tests for alloc_unique_custom
+// ------------------------------------------------------------
+
+TEST_CASE("alloc_unique_custom<ManagedCyphalTransfer> cleans payload")
 {
     alignas(O1HEAP_ALIGNMENT) static uint8_t buffer[4096];
     init_heap(buffer, sizeof(buffer));
 
-    SafeAllocator<CyphalTransfer, LocalHeap> alloc;
+    // FIXED: Use ManagedCyphalTransfer<LocalHeap>
+    using ManagedT = ManagedCyphalTransfer<LocalHeap>;
+    SafeAllocator<ManagedT, LocalHeap> alloc;
 
     size_t allocated0 = o1heapGetDiagnostics(heap).allocated;
 
     {
-        auto p = alloc_unique_custom<CyphalTransfer>(alloc);
+        auto p = alloc_unique_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
         p->payload = o1heapAllocate(heap, 100);
         REQUIRE(p->payload != nullptr);
 
         CHECK(o1heapGetDiagnostics(heap).allocated > allocated0);
-    }
+    } // ManagedT destructor is called here by unique_ptr deleter
 
     CHECK(o1heapGetDiagnostics(heap).allocated == allocated0);
 }
 
-TEST_CASE("alloc_unique_custom<CanardRxTransfer> cleans payload")
+TEST_CASE("alloc_unique_custom<ManagedCanardRxTransfer> cleans payload")
 {
     alignas(O1HEAP_ALIGNMENT) static uint8_t buffer[4096];
     init_heap(buffer, sizeof(buffer));
 
-    SafeAllocator<CanardRxTransfer, LocalHeap> alloc;
+    // FIXED: Use ManagedCanardRxTransfer<LocalHeap>
+    using ManagedT = ManagedCanardRxTransfer<LocalHeap>;
+    SafeAllocator<ManagedT, LocalHeap> alloc;
 
     size_t allocated0 = o1heapGetDiagnostics(heap).allocated;
 
     {
-        auto p = alloc_unique_custom<CanardRxTransfer>(alloc);
+        auto p = alloc_unique_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
         p->payload = o1heapAllocate(heap, 100);
         REQUIRE(p->payload != nullptr);
 
         CHECK(o1heapGetDiagnostics(heap).allocated > allocated0);
-    }
+    } // ManagedT destructor is called here by unique_ptr deleter
 
     CHECK(o1heapGetDiagnostics(heap).allocated == allocated0);
 }

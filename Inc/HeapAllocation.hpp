@@ -6,13 +6,8 @@
 #include <utility>
 
 #include "o1heap.h"
-#include "cyphal.hpp"
-#include "canard.h"
-#include "serard.h"
-#include "udpard.h"
-
-#include "Logger.hpp"
 #include "IRQLock.hpp"
+#include "Logger.hpp"
 
 #ifdef __arm____
 #include "stm32xxxx_hal.h"
@@ -20,7 +15,9 @@
 #include "mock_hal.h"
 #endif
 
-#undef DEBUG_ALLOCATIONS
+#define DEBUG_ALLOCATIONS
+
+struct CanardInstance;
 
 typedef struct
 {
@@ -216,34 +213,13 @@ public:
 	}
 
 	// *** make this const ***
-	void destroy(pointer p) const
-	{
-		if (!p)
-			return;
-
-		if constexpr (std::is_same_v<T, CyphalTransfer>)
+    void destroy(pointer p) const
+    {
+        if (p)
 		{
-#ifdef DEBUG_ALLOCATIONS
-			log(LOG_LEVEL_INFO, "destroy CyphalTransfer %p payload %p size %u\r\n",
-				static_cast<void *>(p),
-				p->payload,
-				unsigned(p->payload_size));
-#endif // DEBUG_ALLOCATIONS
-			if (p->payload)
-			{
-				Heap::heapFree(nullptr, p->payload);
-			}
-		}
-		else if constexpr (std::is_same_v<T, CanardRxTransfer>)
-		{
-			if (p->payload)
-			{
-				Heap::heapFree(nullptr, p->payload);
-			}
-		}
-
-		p->~T();
-	}
+            p->~T(); 
+        }
+    }
 
 	template <typename U>
 	bool operator==(const SafeAllocator<U, Heap> &) const noexcept { return true; }
