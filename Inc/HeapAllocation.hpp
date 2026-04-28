@@ -15,7 +15,7 @@
 #include "mock_hal.h"
 #endif
 
-#define DEBUG_ALLOCATIONS
+#undef DEBUG_ALLOCATIONS
 
 struct CanardInstance;
 

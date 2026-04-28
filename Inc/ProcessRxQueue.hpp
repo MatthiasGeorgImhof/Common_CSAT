@@ -15,6 +15,8 @@
 #include "Logger.hpp"
 #include "CanTxQueueDrainer.hpp"
 
+using LocalHeap = HeapAllocation<65536>;
+
 #if defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
 extern CanTxQueueDrainer tx_drainer;
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
@@ -50,6 +52,11 @@ public:
 //    	uchar_buffer_to_hex(static_cast<const unsigned char*>(transfer.payload), transfer.payload_size, hex_string_buffer, BUFFER_SIZE);
 //        log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: %4d %s\r\n", transfer.metadata.port_id, hex_string_buffer);
 
+//        LocalHeap::heapFree(nullptr, transfer.payload);
+//        transfer.payload = nullptr; // Avoid dangling pointer
+//        return true; // Indicate successful processing
+
+
         using ManagedT = ManagedCyphalTransfer<Heap>;
         SafeAllocator<ManagedT, Heap> alloc;
         auto transfer_ptr = std::allocate_shared<ManagedT>(alloc, transfer);
@@ -61,7 +68,7 @@ public:
                       {
             int32_t res = adapter.cyphalTxForward(static_cast<CyphalMicrosecond>(0), &transfer.metadata, transfer.payload_size, transfer.payload, CYPHAL_NODE_ID_UNSET);
             all_successful = all_successful && (res > 0); }(), ...); }, adapters);
-        log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: shared counter %4d\r\n", transfer_ptr.use_count());
+//        log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: shared counter %4d\r\n", transfer_ptr.use_count());
         return all_successful; // Return success status
     }
 

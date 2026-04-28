@@ -36,18 +36,18 @@ void TaskSendNodePortList<Adapters...>::handleTaskImpl()
 {
 	uavcan_node_port_List_1_0 data;
     
-    constexpr size_t MAX_CHARS = 64;
-    char substring[MAX_CHARS];
-    char pubstring[MAX_CHARS];
-    char clistring[MAX_CHARS];
-    char servstring[MAX_CHARS];
+//    constexpr size_t MAX_CHARS = 64;
+//    char substring[MAX_CHARS];
+//    char pubstring[MAX_CHARS];
+//    char clistring[MAX_CHARS];
+//    char servstring[MAX_CHARS];
 
     size_t subscription_size = registration_manager_->getSubscriptions().size();
     data.subscribers.sparse_list.count = subscription_size;
     for(uint16_t i=0; i<subscription_size; ++i)
     {
     	data.subscribers.sparse_list.elements[i].value = registration_manager_->getSubscriptions()[i];
-        snprintf(substring, sizeof(substring), "%d", registration_manager_->getSubscriptions()[i]);
+//        snprintf(substring, sizeof(substring), "%d", registration_manager_->getSubscriptions()[i]);
     }
     uavcan_node_port_SubjectIDList_1_0_select_sparse_list_(&data.subscribers);
 
@@ -56,7 +56,7 @@ void TaskSendNodePortList<Adapters...>::handleTaskImpl()
     for(uint16_t i=0; i<publication_size; ++i)
     {
     	data.publishers.sparse_list.elements[i].value = registration_manager_->getPublications()[i];
-        snprintf(pubstring, sizeof(pubstring), "%d", registration_manager_->getPublications()[i]);
+//        snprintf(pubstring, sizeof(pubstring), "%d", registration_manager_->getPublications()[i]);
     }
     uavcan_node_port_SubjectIDList_1_0_select_sparse_list_(&data.publishers);
     
@@ -66,7 +66,7 @@ void TaskSendNodePortList<Adapters...>::handleTaskImpl()
     for(uint16_t i=0; i<client_size; ++i)
     {
         nunavutSetBit(data.clients.mask_bitpacked_, sizeof(data.clients.mask_bitpacked_), registration_manager_->getClients()[i], true);
-        snprintf(clistring, sizeof(clistring), "%d", registration_manager_->getClients()[i]);
+//        snprintf(clistring, sizeof(clistring), "%d", registration_manager_->getClients()[i]);
     }
 
     memset(data.servers.mask_bitpacked_, 0, sizeof(data.servers.mask_bitpacked_));
@@ -74,10 +74,11 @@ void TaskSendNodePortList<Adapters...>::handleTaskImpl()
     for(uint16_t i=0; i<server_size; ++i)
     {
         nunavutSetBit(data.servers.mask_bitpacked_, sizeof(data.servers.mask_bitpacked_), registration_manager_->getServers()[i], true);
-        snprintf(servstring, sizeof(servstring), "%d", registration_manager_->getServers()[i]);
+//        snprintf(servstring, sizeof(servstring), "%d", registration_manager_->getServers()[i]);
     }
 
-    log(LOG_LEVEL_DEBUG, "TaskSendNodePortList ( %s) ( %s) ( %s) ( %s)\r\n", substring, pubstring, clistring, servstring);
+//    log(LOG_LEVEL_DEBUG, "TaskSendNodePortList ( %s) ( %s) ( %s) ( %s)\r\n", substring, pubstring, clistring, servstring);
+    log(LOG_LEVEL_DEBUG, "TaskSendNodePortList \r\n");
     
 
     constexpr size_t PAYLOAD_SIZE = uavcan_node_port_List_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;

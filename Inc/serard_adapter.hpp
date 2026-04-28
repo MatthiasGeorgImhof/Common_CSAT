@@ -104,8 +104,8 @@ public:
                          const void *const payload)
     {
         SerardTransferMetadata serard_metadata = cyphalMetadataToSerard(*metadata);
-        log(LOG_LEVEL_DEBUG, "serardTxPush at %08u: %3d -> %3d (%4d %3d)\r\n", HAL_GetTick(),
-            metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
+        log(LOG_LEVEL_DEBUG, "serardTxPush at %08u: %3d -> %3d (%3d %4d %3d) %d\r\n", HAL_GetTick(),
+            metadata->source_node_id, metadata->destination_node_id, metadata->remote_node_id, metadata->port_id, metadata->transfer_id, payload_size);
         return serardTxPush(adapter_->ins.node_id, &serard_metadata, payload_size, payload, adapter_->user_reference, adapter_->emitter);
     }
 

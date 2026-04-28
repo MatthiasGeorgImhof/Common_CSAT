@@ -127,7 +127,7 @@ protected:
 //        	uchar_buffer_to_hex(payload, payload_size, hex_string_buffer, BUFFER_SIZE);
 //
 //			log(LOG_LEVEL_DEBUG, "Task.publish serialization %d %d: %s \r\n", node_id, port_id, hex_string_buffer);
-			log(LOG_LEVEL_DEBUG, "Task.publish serialization %d %d: %d \r\n", node_id, port_id, transfer_id);
+			log(LOG_LEVEL_DEBUG, "Task.publish serialization %d %d %d: %d\r\n", node_id, port_id, transfer_id, payload_size);
 		}
 		CyphalTransferMetadata metadata =
 			{

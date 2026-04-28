@@ -3,7 +3,7 @@ CXX = g++
 CXXFLAGS = -g -MMD -std=c++20
 EXTRA_FLAGS = -Wall -Wextra -pedantic -Werror -Wconversion -fconcepts-diagnostics-depth=2 -Werror=maybe-uninitialized
 EXTRA_EXTRA_FLAGS = -Wzero-as-null-pointer-constant -Wsign-conversion
-LOGGER_DEFINES = -DLOGGER_ENABLED
+LOGGER_DEFINES = -DLOGGER_ENABLED -DLOGGER_OUTPUT_STDERR -DLOG_LEVEL=1U
 
 STRICT_FLAGS  = $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(LOGGER_DEFINES)
 RELAXED_FLAGS = $(CXXFLAGS) $(EXTRA_FLAGS) $(LOGGER_DEFINES)
@@ -130,6 +130,7 @@ EXTRA_OBJS_TestTaskSetRTC := src/RegistrationManager.o src/TimeUtils.o
 EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o 
 EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
+EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o src/TaskCheckMemory.o
 
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 

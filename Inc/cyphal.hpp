@@ -73,9 +73,15 @@ struct ManagedCyphalTransfer : public CyphalTransfer {
     // The destructor now owns the responsibility of freeing the payload
     ~ManagedCyphalTransfer() {
         if (payload) {
+//            log(LOG_LEVEL_DEBUG, "ManagedCyphalTransfer destructor: freeing ourselves at %p and payload at %p\r\n", this, payload);
             // We use the static method from LocalHeap (HeapAllocation) 
             // to return the buffer to o1heap.
             Heap::heapFree(nullptr, const_cast<void*>(payload));
+            payload = nullptr; // Avoid dangling pointer
+        }
+        else
+        {
+//            log(LOG_LEVEL_DEBUG, "ManagedCyphalTransfer destructor: freeing only ourselves at %p\r\n", this);
         }
     }
 };

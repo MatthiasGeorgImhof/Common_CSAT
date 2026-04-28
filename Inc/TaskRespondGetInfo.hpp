@@ -49,6 +49,8 @@ void TaskRespondGetInfo<Adapters...>::handleTaskImpl()
 					transfer->metadata.transfer_kind);
             continue;
         }
+
+        log(LOG_LEVEL_INFO, "TaskRespondGetInfo: %4d %4d\r\n", transfer->metadata.remote_node_id, transfer->metadata.transfer_kind);
         uavcan_node_GetInfo_Response_1_0 data = {
             .protocol_version = {uavcan_node_Version_1_0{.major = 1, .minor = 0}},
             .hardware_version = {uavcan_node_Version_1_0{.major = 1, .minor = 0}},
@@ -62,7 +64,6 @@ void TaskRespondGetInfo<Adapters...>::handleTaskImpl()
         std::memcpy(data.unique_id, unique_id_, sizeof(data.unique_id));
         std::memcpy(data.name.elements, name_, sizeof(data.name.elements));
         data.name.count = std::strlen(name_);
-
 
         constexpr size_t PAYLOAD_SIZE = uavcan_node_GetInfo_Response_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
         uint8_t payload[PAYLOAD_SIZE];

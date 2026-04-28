@@ -198,9 +198,9 @@ private:
         // Read raw CC1101 FIFO into slot
         radio_.ReadBurst(RADIO::BurstRegister::RXFIFO, slot.data(), bytesInFifo);
 
-        // char buffer[1024];
-        // uchar_buffer_to_hex(slot.data()+1, slot[0], buffer, sizeof(buffer));
-        // log(LOG_LEVEL_DEBUG, "handle_rf_read frame at %08u: %s\r\n", HAL_GetTick(), buffer);
+//         char buffer[1024];
+//         uchar_buffer_to_hex(slot.data()+1, slot[0], buffer, sizeof(buffer));
+//         log(LOG_LEVEL_DEBUG, "handle_rf_read frame at %08u: %s\r\n", HAL_GetTick(), buffer);
 
         CC1101PacketView pkt(slot.data());
 
