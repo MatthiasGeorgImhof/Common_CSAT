@@ -26,7 +26,7 @@ constexpr size_t O1HEAP_SIZE = 16384;
 uint8_t o1heap_buffer[O1HEAP_SIZE] __attribute__((aligned(O1HEAP_ALIGNMENT)));
 O1HeapInstance *o1heap;
 
-struct LocalHeap
+struct TestLocalHeap
 {
     static void *heapAllocate(void * /*handle*/, const size_t amount)
     {
@@ -48,7 +48,7 @@ struct LocalHeap
 template <typename T, typename... Args>
 static void register_task_with_heap(RegistrationManager &rm, Args &&...args)
 {
-    static SafeAllocator<T, LocalHeap> alloc;
+    static SafeAllocator<T, TestLocalHeap> alloc;
     rm.add(alloc_unique_custom<T>(alloc, std::forward<Args>(args)...));
 }
 using CanardCyphal = Cyphal<CanardAdapter>;
@@ -171,7 +171,7 @@ TEST_CASE("TaskMainLoop: TaskSendHeartBeat TaskBlinkLED TaskCheckMemory")
     subscription_manager.subscribe<SubscriptionManager::RequestTag>(registration_manager.getServers(), adapters);
     subscription_manager.subscribe<SubscriptionManager::ResponseTag>(registration_manager.getClients(), adapters);
 
-    LoopManager<LocalHeap> loop_manager;
+    LoopManager<TestLocalHeap> loop_manager;
 
     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
     clear_uart_tx_buffer();
