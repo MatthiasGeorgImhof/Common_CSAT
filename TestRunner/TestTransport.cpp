@@ -278,6 +278,137 @@ TEST_CASE("SPIStreamTransport transfer() performs full-duplex exchange")
     CHECK(memcmp(rx, injected, sizeof(injected)) == 0);
 }
 
+TEST_CASE("SPIStreamTransport manual select and deselect")
+{
+    reset_gpio_port_state(&GPIOA);
+
+    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamTransport transport(config);
+
+    transport.select();
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    transport.deselect();
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_SET);
+}
+
+TEST_CASE("SPIStreamTransport write_nocs does not change CS")
+{
+    clear_spi_tx_buffer();
+
+    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamTransport transport(config);
+
+    transport.select();
+
+    uint8_t tx[] = {0x11, 0x22};
+
+    CHECK(transport.write_nocs(tx, sizeof(tx)));
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    CHECK(get_spi_tx_buffer_count() == sizeof(tx));
+
+    transport.deselect();
+     CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_SET);
+}
+   
+TEST_CASE("SPIStreamTransport transfer_nocs keeps CS asserted")
+{
+    clear_spi_tx_buffer();
+    clear_spi_rx_buffer();
+
+    uint8_t injected[] =
+    { 0xAA, 0xBB, 0xCC };
+
+    inject_spi_rx_data(injected, sizeof(injected));
+
+    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamTransport transport(config);
+
+    transport.select();
+
+    uint8_t tx[] = { 0x01, 0x02, 0x03 };
+
+    uint8_t rx[3] = {};
+
+    CHECK(transport.transfer_nocs( tx, rx, sizeof(tx)));
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    CHECK(memcmp(rx, injected, sizeof(rx)) == 0);
+
+    transport.deselect();
+}
+
+TEST_CASE("SPIStreamTransport supports multi-part transaction under one CS")
+{
+    clear_spi_tx_buffer();
+    reset_gpio_port_state(&GPIOA);
+
+    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamTransport transport(config);
+
+    uint8_t header[] =
+    { 0x12, 0x34, 0x56
+    };
+
+    uint8_t payload[] =
+    { 0xAA, 0xBB, 0xCC
+    };
+
+    //
+    // Transport constructor should leave CS deasserted
+    //
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_SET);
+
+    //
+    // Begin transaction
+    //
+    transport.select();
+
+    CHECK(
+        get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    //
+    // Header phase
+    //
+    CHECK(transport.write_nocs(header, sizeof(header)));
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    //
+    // Payload phase
+    //
+    CHECK(transport.write_nocs(payload, sizeof(payload)));
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET);
+
+    //
+    // End transaction
+    //
+    transport.deselect();
+
+    CHECK(get_gpio_pin_state(&GPIOA, GPIO_PIN_5) == GPIO_PIN_SET);
+
+    //
+    // Verify continuous output stream
+    //
+    REQUIRE(get_spi_tx_buffer_count() == sizeof(header) + sizeof(payload));
+
+    uint8_t* tx = get_spi_tx_buffer();
+
+    CHECK(tx[0] == 0x12);
+    CHECK(tx[1] == 0x34);
+    CHECK(tx[2] == 0x56);
+
+    CHECK(tx[3] == 0xAA);
+    CHECK(tx[4] == 0xBB);
+    CHECK(tx[5] == 0xCC);
+}
+
 // -----------------------------------------
 // UART Tests (Stream Mode)
 // -----------------------------------------

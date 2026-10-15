@@ -343,13 +343,40 @@ public:
 
     explicit SPIStreamTransport(const Config &cfg) : config(cfg) { deselect(); }
 
-    bool write(const uint8_t *tx_buf, uint16_t tx_len) const
+    bool write_nocs(const uint8_t* tx_buf, uint16_t tx_len) const
     {
         if (tx_len > Config::max_transfer_size)
+        {
             return false;
+        }
 
+        return HAL_SPI_Transmit(&Config::handle(),const_cast<uint8_t*>(tx_buf), tx_len, Config::timeout) == HAL_OK;
+    }
+
+    bool read_nocs(uint8_t* rx_buf, uint16_t len) const
+    {
+        if (len > Config::max_transfer_size)
+        {
+            return false;
+        }
+
+        return HAL_SPI_TransmitReceive(&Config::handle(), rx_buf, rx_buf, len, Config::timeout) == HAL_OK;
+    }
+
+    bool transfer_nocs(uint8_t* tx_buf, uint8_t* rx_buf, uint16_t len) const
+    {
+        if (len > Config::max_transfer_size)
+        {
+            return false;
+        }
+
+        return HAL_SPI_TransmitReceive(&Config::handle(), tx_buf, rx_buf, len, Config::timeout) == HAL_OK;
+    }
+
+    bool write(const uint8_t *tx_buf, uint16_t tx_len) const
+    {
         select();
-        bool ok = HAL_SPI_Transmit(&Config::handle(), const_cast<uint8_t *>(tx_buf), tx_len, Config::timeout) == HAL_OK;
+        bool ok = write_nocs(tx_buf, tx_len);
         deselect();
         return ok;
     }
@@ -360,26 +387,31 @@ public:
             return false;
 
         select();
-        bool ok = HAL_SPI_TransmitReceive(&Config::handle(), rx_buf, rx_buf, len, Config::timeout) == HAL_OK;
+        bool ok = read_nocs(rx_buf, len);
         deselect();
         return ok;
     }
 
     bool transfer(uint8_t *tx_buf, uint8_t *rx_buf, uint16_t len) const
     {
-        if (len > Config::max_transfer_size)
-            return false;
         select();
-        bool ok = HAL_SPI_TransmitReceive(&Config::handle(), tx_buf, rx_buf, len, Config::timeout) == HAL_OK;
+        bool ok = transfer_nocs(tx_buf, rx_buf, len);
         deselect();
         return ok;
     }
 
+    void select() const 
+    { 
+        HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_RESET); 
+    }
+    
+    void deselect() const 
+    { 
+        HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_SET); 
+    }
+
 private:
     Config config;
-
-    void select() const { HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_RESET); }
-    void deselect() const { HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_SET); }
 };
 
 #endif // HAS_SPI_HANDLE_TYPEDEF
