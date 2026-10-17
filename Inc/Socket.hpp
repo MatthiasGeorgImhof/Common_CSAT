@@ -1,6 +1,6 @@
 #pragma once
 
-#include "W5500Driver.hpp"
+#include "SocketConcept.hpp"
 
 extern void print(const char* buffer);
 
@@ -38,7 +38,7 @@ protected:
     typename Driver::SOCKET_NUMBER socket_;
 };
 
-template<W5500DriverUdpConcept Driver>
+template<UdpSocketConcept Driver>
 class UdpSocket : public SocketBase<Driver>
 {
 public:
@@ -65,7 +65,7 @@ public:
     }
 };
 
-template<W5500DriverTcpConcept  Driver>
+template<TcpSocketConcept  Driver>
 class TcpSocket : public SocketBase<Driver>
 {
 public:

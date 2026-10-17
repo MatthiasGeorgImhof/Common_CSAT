@@ -6,7 +6,7 @@
 #include "W5500Driver.hpp"
 
 template<typename Driver>
-concept W5500DriverSocketConcept =
+concept SocketConcept =
 requires(
     Driver driver,
     typename Driver::SOCKET_NUMBER socket_number)
@@ -17,7 +17,7 @@ requires(
 };
 
 template <typename Driver>
-concept W5500DriverUdpConcept = W5500DriverSocketConcept<Driver> &&
+concept UdpSocketConcept = SocketConcept<Driver> &&
     requires(
         Driver driver,
 		typename Driver::SOCKET_NUMBER socket_number,
@@ -51,7 +51,7 @@ concept W5500DriverUdpConcept = W5500DriverSocketConcept<Driver> &&
     };
 
 template <typename Driver>
-concept W5500DriverTcpConcept = W5500DriverSocketConcept<Driver> &&
+concept TcpSocketConcept = SocketConcept<Driver> &&
     requires(
         Driver driver,
 		typename Driver::SOCKET_NUMBER socket_number,

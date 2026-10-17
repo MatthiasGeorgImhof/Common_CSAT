@@ -5,6 +5,7 @@
 
 #include "Transport.hpp"
 #include "GpioPin.hpp"
+#include "Network.hpp"
 
 extern void print(const char* buffer);
 
@@ -25,29 +26,27 @@ extern "C"
 #include "dhcp.h"
 }
 
-struct IPv4Address
+uint8_t DHCP_buffer[548];
+volatile bool g_ip_assigned = false;
+
+static void Callback_IPAssigned()
 {
-    uint8_t octet[4];
-};
+	g_ip_assigned = true;
+    printf("Callback_IPAssigned %d\n", g_ip_assigned);
+}
 
-struct MacAddress
+static void Callback_IPConflict()
 {
-    uint8_t heptet[6];
-};
+	g_ip_assigned = false;
+    printf("Callback_IPConflict %d\n", g_ip_assigned);
+}
 
-struct NetworkInfo
-{
-	MacAddress mac;
-
-    IPv4Address ip;
-    IPv4Address subnet;
-    IPv4Address gateway;
-    IPv4Address dns;
-
-    bool dhcp = false;
-};
-
-template <typename Transport, typename ResetPin, auto &NetworkInfo>
+template <typename Transport, typename ResetPin, auto& Configuration>
+requires
+(
+    std::same_as<std::remove_cvref_t<decltype(Configuration)>, StaticAddress> ||
+    std::same_as<std::remove_cvref_t<decltype(Configuration)>, DynamicAddress>
+)
 class W5500Driver
 {
 public:
@@ -69,7 +68,7 @@ public:
     explicit W5500Driver(Transport &transport) : transport_(transport), reset_pin_{}
     {
     	active_ = this;
-    	ip_assigned_ = false;
+//    	ip_assigned_ = false;
     }
 
 
@@ -120,10 +119,14 @@ public:
 
         /***** Use DHCP or Static IP  *****/
 
-        if (NetworkInfo.dhcp)
-        	get_dynamic_address();
-        else
-        	assign_static_address();
+        if constexpr (std::same_as<std::remove_cvref_t<decltype(Configuration)>, StaticAddress>)
+        {
+            assign_static_address();
+        }
+        else if constexpr (std::same_as<std::remove_cvref_t<decltype(Configuration)>, DynamicAddress>)
+        {
+            get_dynamic_address();
+        }
 
         /***** Configure DNS  *****/
         HAL_Delay(500);
@@ -139,6 +142,7 @@ public:
         printf("SUBNET: %d.%d.%d.%d\r\n", tmpInfo.sn[0], tmpInfo.sn[1], tmpInfo.sn[2], tmpInfo.sn[3]);
         printf("GATEWAY: %d.%d.%d.%d\r\n", tmpInfo.gw[0], tmpInfo.gw[1], tmpInfo.gw[2], tmpInfo.gw[3]);
         printf("DNS: %d.%d.%d.%d\r\n", tmpInfo.dns[0], tmpInfo.dns[1], tmpInfo.dns[2], tmpInfo.dns[3]);
+        printf("MAC: %2x:%2x:%2x:%2x:%2x:%2x\r\n", tmpInfo.mac[0], tmpInfo.mac[1], tmpInfo.mac[2], tmpInfo.mac[3], tmpInfo.mac[4], tmpInfo.mac[5]);
 
         return 0;
     }
@@ -159,11 +163,11 @@ public:
     {
         wiz_NetInfo net{};
 
-        memcpy(net.mac, &NetworkInfo.mac, 6);
-        memcpy(net.ip,  &NetworkInfo.ip.octet,      4);
-        memcpy(net.sn,  &NetworkInfo.subnet.octet,  4);
-        memcpy(net.gw,  &NetworkInfo.gateway.octet, 4);
-        memcpy(net.dns, &NetworkInfo.dns.octet,     4);
+        memcpy(net.mac, Configuration.mac.bytes, sizeof(Configuration.mac.bytes));
+        memcpy(net.ip,  Configuration.config.address.bytes, sizeof(Configuration.config.address.bytes));
+        memcpy(net.sn,  Configuration.config.subnet.bytes, sizeof(Configuration.config.subnet.bytes));
+        memcpy(net.gw,  Configuration.config.gateway.bytes, sizeof(Configuration.config.gateway.bytes));
+        memcpy(net.dns, Configuration.config.dns.bytes, sizeof(Configuration.config.dns.bytes));
         net.dhcp = NETINFO_STATIC;
         return net;
     }
@@ -178,19 +182,21 @@ public:
     {
         printf ("Using DHCP.. Please Wait..\r\n");
         wiz_NetInfo netInfo{};
-        setSHAR(netInfo.mac);
-        uint8_t DHCP_buffer[548];
+//        memcpy(netInfo.mac, &Configuration.mac.bytes, sizeof(Configuration.mac.bytes));
+        setSHAR(const_cast<uint8_t*>(Configuration.mac.bytes));
+//        uint8_t DHCP_buffer[548];
         DHCP_init(static_cast<uint8_t>(DHCP_SOCKET), DHCP_buffer);
 
         reg_dhcp_cbfunc(&Callback_IPAssigned, &Callback_IPAssigned, &Callback_IPConflict);
 
         uint8_t retries = 20;
-        while((!ip_assigned_) && (retries > 0)) {
-            DHCP_run();
+        while((!g_ip_assigned) && (retries > 0)) {
+            auto result = DHCP_run();
+            printf("DHCP_run() = %d %d\r\n", result, g_ip_assigned);
             HAL_Delay(500);
             retries--;
         }
-        if(!ip_assigned_) {
+        if(!g_ip_assigned) {
         	// DHCP Failed, switch to static IP
         	printf ("DHCP Failed, switching to static IP\r\n");
         	return ctlnetwork(CN_SET_NETINFO, (void*)&netInfo);
@@ -252,7 +258,7 @@ public:
 
     bool connectTcp(SOCKET_NUMBER socket_number, const IPv4Address& remote_address, uint16_t remote_port)
     {
-        return ::connect(static_cast<uint8_t>(socket_number), const_cast<uint8_t*>(remote_address.octet), remote_port) == SOCK_OK;
+        return ::connect(static_cast<uint8_t>(socket_number), const_cast<uint8_t*>(remote_address.bytes), remote_port) == SOCK_OK;
     }
 
     bool disconnectTcp(SOCKET_NUMBER socket_number)
@@ -292,12 +298,12 @@ public:
 
     int32_t sendUdp(SOCKET_NUMBER socket_number, const uint8_t *data, uint16_t size, const IPv4Address &destination, uint16_t destination_port)
     {
-        return sendto(static_cast<uint8_t>(socket_number), const_cast<uint8_t *>(data), size, const_cast<uint8_t *>(destination.octet), destination_port);
+        return sendto(static_cast<uint8_t>(socket_number), const_cast<uint8_t *>(data), size, const_cast<uint8_t *>(destination.bytes), destination_port);
     }
 
     int32_t receiveUdp(SOCKET_NUMBER socket_number, uint8_t *data, uint16_t size, IPv4Address &source, uint16_t &source_port)
     {
-        return recvfrom(static_cast<uint8_t>(socket_number), data, size, source.octet, &source_port);
+        return recvfrom(static_cast<uint8_t>(socket_number), data, size, source.bytes, &source_port);
     }
 
 public:
@@ -333,13 +339,15 @@ public:
     	active_->transport_.write_nocs(buffer, length);
     }
 
-    static void Callback_IPAssigned(void) {
-	    ip_assigned_ = true;
-	}
-
-	static void Callback_IPConflict(void) {
-	    ip_assigned_ = false;
-	}
+//    static void Callback_IPAssigned(void) {
+//	    ip_assigned_ = true;
+//	    printf("Callback_IPAssigned %d\n", ip_assigned_);
+//	}
+//
+//	static void Callback_IPConflict(void) {
+//	    ip_assigned_ = false;
+//	    printf("Callback_IPConflict %d\n", ip_assigned_);
+//	}
 
 
 private:
@@ -355,7 +363,7 @@ private:
 private:
     Transport &transport_;
     ResetPin reset_pin_;
-    static inline volatile bool ip_assigned_ = false;
+//    static inline volatile bool ip_assigned_ = false;
     static inline W5500Driver *active_ = nullptr;
 
 };
