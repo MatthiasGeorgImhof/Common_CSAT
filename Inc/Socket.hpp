@@ -2,6 +2,9 @@
 
 #include "W5500Driver.hpp"
 
+extern void print(const char* buffer);
+
+
 struct Endpoint
 {
     IPv4Address address;
@@ -12,18 +15,34 @@ template<typename Driver>
 class SocketBase
 {
 protected:
-    SocketBase(Driver& driver, uint8_t socket_number) : driver_(driver), socket_(socket_number) {}
+    SocketBase(Driver& driver,
+               typename Driver::SOCKET_NUMBER socket_number)
+        : driver_(driver)
+        , socket_(socket_number)
+    {
+    }
+
+public:
+    uint16_t available() const
+    {
+        return driver_.rxAvailable(socket_);
+    }
+
+    bool poll() const
+    {
+        return available() > 0U;
+    }
 
 protected:
     Driver& driver_;
-    uint8_t socket_;
+    typename Driver::SOCKET_NUMBER socket_;
 };
 
 template<W5500DriverUdpConcept Driver>
 class UdpSocket : public SocketBase<Driver>
 {
 public:
-    UdpSocket(Driver& driver, uint8_t socket_number) : SocketBase<Driver>(driver, socket_number) {}
+    UdpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
 
     bool open(uint16_t local_port)
     {
@@ -50,7 +69,7 @@ template<W5500DriverTcpConcept  Driver>
 class TcpSocket : public SocketBase<Driver>
 {
 public:
-    TcpSocket(Driver& driver, uint8_t socket_number) : SocketBase<Driver>(driver, socket_number) {}
+    TcpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
 
     bool open(uint16_t local_port)
     {
