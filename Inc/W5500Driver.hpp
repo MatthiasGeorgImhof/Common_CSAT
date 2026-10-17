@@ -26,21 +26,6 @@ extern "C"
 #include "dhcp.h"
 }
 
-uint8_t DHCP_buffer[548];
-volatile bool g_ip_assigned = false;
-
-static void Callback_IPAssigned()
-{
-	g_ip_assigned = true;
-    printf("Callback_IPAssigned %d\n", g_ip_assigned);
-}
-
-static void Callback_IPConflict()
-{
-	g_ip_assigned = false;
-    printf("Callback_IPConflict %d\n", g_ip_assigned);
-}
-
 template <typename Transport, typename ResetPin, auto& Configuration>
 requires
 (
@@ -182,21 +167,20 @@ public:
     {
         printf ("Using DHCP.. Please Wait..\r\n");
         wiz_NetInfo netInfo{};
-//        memcpy(netInfo.mac, &Configuration.mac.bytes, sizeof(Configuration.mac.bytes));
         setSHAR(const_cast<uint8_t*>(Configuration.mac.bytes));
-//        uint8_t DHCP_buffer[548];
+        uint8_t DHCP_buffer[548];
         DHCP_init(static_cast<uint8_t>(DHCP_SOCKET), DHCP_buffer);
 
         reg_dhcp_cbfunc(&Callback_IPAssigned, &Callback_IPAssigned, &Callback_IPConflict);
 
         uint8_t retries = 20;
-        while((!g_ip_assigned) && (retries > 0)) {
+        while((!ip_assigned_) && (retries > 0)) {
             auto result = DHCP_run();
-            printf("DHCP_run() = %d %d\r\n", result, g_ip_assigned);
+            printf("DHCP_run() = %d %d\r\n", result, ip_assigned_);
             HAL_Delay(500);
             retries--;
         }
-        if(!g_ip_assigned) {
+        if(!ip_assigned_) {
         	// DHCP Failed, switch to static IP
         	printf ("DHCP Failed, switching to static IP\r\n");
         	return ctlnetwork(CN_SET_NETINFO, (void*)&netInfo);
@@ -207,6 +191,7 @@ public:
             getGWfromDHCP(netInfo.gw);
             getSNfromDHCP(netInfo.sn);
             getDNSfromDHCP(netInfo.dns);
+            memcpy(netInfo.mac, Configuration.mac.bytes, sizeof(Configuration.mac.bytes));
 
             // Now apply them to the chip
             printf("DHCP IP assigned successfully\r\n");
@@ -339,15 +324,15 @@ public:
     	active_->transport_.write_nocs(buffer, length);
     }
 
-//    static void Callback_IPAssigned(void) {
-//	    ip_assigned_ = true;
-//	    printf("Callback_IPAssigned %d\n", ip_assigned_);
-//	}
-//
-//	static void Callback_IPConflict(void) {
-//	    ip_assigned_ = false;
-//	    printf("Callback_IPConflict %d\n", ip_assigned_);
-//	}
+    static void Callback_IPAssigned(void) {
+	    ip_assigned_ = true;
+	    printf("Callback_IPAssigned %d\n", ip_assigned_);
+	}
+
+	static void Callback_IPConflict(void) {
+	    ip_assigned_ = false;
+	    printf("Callback_IPConflict %d\n", ip_assigned_);
+	}
 
 
 private:
@@ -363,7 +348,7 @@ private:
 private:
     Transport &transport_;
     ResetPin reset_pin_;
-//    static inline volatile bool ip_assigned_ = false;
+    static inline volatile bool ip_assigned_ = false;
     static inline W5500Driver *active_ = nullptr;
 
 };

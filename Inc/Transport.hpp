@@ -360,7 +360,7 @@ public:
             return false;
         }
 
-        return HAL_SPI_TransmitReceive(&Config::handle(), rx_buf, rx_buf, len, Config::timeout) == HAL_OK;
+        return HAL_SPI_Receive(&Config::handle(), rx_buf, len, Config::timeout) == HAL_OK;
     }
 
     bool transfer_nocs(uint8_t* tx_buf, uint8_t* rx_buf, uint16_t len) const
