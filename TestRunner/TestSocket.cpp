@@ -6,6 +6,20 @@
 class MockDriver
 {
 public:
+	enum SOCKET_NUMBER : uint8_t  {
+		SOCKET_0 = 0,
+		SOCKET_1 = 1,
+		SOCKET_2 = 2,
+		SOCKET_3 = 3,
+		SOCKET_4 = 4,
+		SOCKET_5 = 5,
+		SOCKET_6 = 6,
+		SOCKET_7 = 7,
+		DNS_SOCKET = 6,
+		DHCP_SOCKET = 7,
+	};
+
+public:
     bool open_called = false;
     bool close_called = false;
 
@@ -67,12 +81,12 @@ TEST_CASE("UdpSocket open forwards to driver")
 {
     MockDriver driver;
 
-    UdpSocket socket(driver, 3);
+    UdpSocket socket(driver, MockDriver::SOCKET_3);
 
     CHECK(socket.open(9382));
 
     CHECK(driver.open_called);
-    CHECK(driver.open_socket == 3);
+    CHECK(driver.open_socket == MockDriver::SOCKET_3);
     CHECK(driver.open_port == 9382);
 }
 
@@ -80,12 +94,12 @@ TEST_CASE("UdpSocket close forwards to driver")
 {
     MockDriver driver;
 
-    UdpSocket<MockDriver> socket(driver, 3);
+    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
 
     socket.close();
 
     CHECK(driver.close_called);
-    CHECK(driver.close_socket == 3);
+    CHECK(driver.close_socket == MockDriver::SOCKET_3);
 }
 
 TEST_CASE("UdpSocket send reports success")
@@ -93,7 +107,7 @@ TEST_CASE("UdpSocket send reports success")
     MockDriver driver;
     driver.send_result = 10;
 
-    UdpSocket<MockDriver> socket(driver, 3);
+    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
 
     Endpoint destination{};
 
@@ -101,7 +115,7 @@ TEST_CASE("UdpSocket send reports success")
 
     CHECK(socket.send(data, sizeof(data), destination));
 
-    CHECK(driver.last_send_socket == 3);
+    CHECK(driver.last_send_socket == MockDriver::SOCKET_3);
     CHECK(driver.last_send_size == 10);
 }
 
@@ -110,7 +124,7 @@ TEST_CASE("UdpSocket send reports failure")
     MockDriver driver;
     driver.send_result = -1;
 
-    UdpSocket<MockDriver> socket(driver, 3);
+    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
 
     Endpoint destination{};
 
@@ -124,7 +138,7 @@ TEST_CASE("UdpSocket receive forwards driver result")
     MockDriver driver;
     driver.receive_result = 42;
 
-    UdpSocket<MockDriver> socket(driver, 3);
+    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
 
     Endpoint source{};
 

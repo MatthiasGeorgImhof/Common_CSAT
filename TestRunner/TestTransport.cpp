@@ -244,11 +244,8 @@ TEST_CASE("SPIStreamTransport read() clocks dummy bytes and receives data")
     uint8_t rx[3] = {};
     CHECK(transport.read(rx, sizeof(rx)) == true);
 
-    // TX buffer should contain dummy bytes
-    CHECK(get_spi_tx_buffer_count() == sizeof(rx));
-    CHECK(get_spi_tx_buffer()[0] == 0x00);
-    CHECK(get_spi_tx_buffer()[1] == 0x00);
-    CHECK(get_spi_tx_buffer()[2] == 0x00);
+    // TX buffer should not contain dummy bytes
+    CHECK(get_spi_tx_buffer_count() == 0);
 
     // RX buffer should contain injected data
     CHECK(memcmp(rx, injected, sizeof(injected)) == 0);

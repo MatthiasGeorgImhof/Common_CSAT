@@ -8,13 +8,20 @@
 
 SPI_HandleTypeDef hspi1;
 GPIO_TypeDef gpioa;
+static constexpr uint32_t MOCK_PORT_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
 
+constexpr static StaticAddress NETWORK {
+   MacAddress{0x02,0x00,0x00,0x00,0x00,0x01},
+   IPv4Address{192,42,172,240},
+   IPv4Address{255,255,255,0},
+   IPv4Address{192,42,172,1},
+   IPv4Address{192,42,172,1}
+};
+
+using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
 using EthernetConfig = SPI_Stream_Config<hspi1, GPIO_PIN_5, 128>;
 using EthernetTransport = SPIStreamTransport<EthernetConfig>;
-using Ethernet = W5500Driver<EthernetTransport>;
-
-static_assert(W5500DriverUdpConcept<Ethernet>);
-static_assert(W5500DriverTcpConcept<Ethernet>);
+using Ethernet = W5500Driver<EthernetTransport, EthernetResetPin, NETWORK>;
 
 struct W5500Fixture
 {

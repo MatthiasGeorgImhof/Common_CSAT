@@ -6,9 +6,10 @@ EXTRA_EXTRA_FLAGS = -Wzero-as-null-pointer-constant -Wsign-conversion
 LOGGER_DEFINES = -DLOGGER_ENABLED # -DLOGGER_OUTPUT_STDERR -DLOG_LEVEL=1U
 WIZNET_DEFINES = -D_WIZCHIP_=W5500
 
-STRICT_FLAGS  = $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES)
-RELAXED_FLAGS = $(CXXFLAGS) $(EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES)
-LOOSE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic $(LOGGER_DEFINES) $(WIZNET_DEFINES)
+STRICT_FLAGS  = $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+RELAXED_FLAGS = $(CXXFLAGS) $(EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+LOOSE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+PERMISSIVE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic -fpermissive $(LOGGER_DEFINES) $(WIZNET_DEFINES)
 
 INCLUDE_PATHS = -I ../Inc \
 				-I $(HOME)/Data/github/can/libcanard/libcanard \
@@ -136,8 +137,8 @@ EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o 
 EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
 EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o src/TaskCheckMemory.o
-EXTRA_OBJS_TestW5500Driver := wiznet/wizchip_conf.o wiznet/socket.o wiznet/W5500/w5500.o
-EXTRA_OBJS_TestW5500Driver2 := wiznet/wizchip_conf.o wiznet/socket.o wiznet/W5500/w5500.o
+EXTRA_OBJS_TestW5500Driver := wiznet/wizchip_conf.o wiznet/socket.o wiznet/dhcp.o wiznet/W5500/w5500.o 
+EXTRA_OBJS_TestW5500Driver2 := wiznet/wizchip_conf.o wiznet/socket.o wiznet/dhcp.o wiznet/W5500/w5500.o 
 
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(WIZNET_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
@@ -176,7 +177,7 @@ $(BIN_DIR)/sgp4/%.o: ../3rdParty/SGP4/%.cpp
 	$(CXX) -c $< $$FLAGS $(INCLUDE_PATHS) -o $@
 
 $(BIN_DIR)/wiznet/%.o: ../3rdParty/Wiznet_W5500/%.c
-	$(CXX) -c $< $(LOOSE_FLAGS) $(WIZNET_DEFINES) $(INCLUDE_PATHS) -o $@
+	$(CXX) -c $< $(PERMISSIVE_FLAGS) $(INCLUDE_PATHS) -o $@
 
 $(BIN_DIR)/3rdParty/%.o: 3rdParty/%.c
 	FLAGS="$(call choose_flags,$<)"; \

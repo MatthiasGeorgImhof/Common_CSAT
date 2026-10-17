@@ -13,7 +13,7 @@ extern "C"
 {
 int _write(int /*fd*/, unsigned char *buf, int len)
 {
-    CDC_Transmit_FS(buf, len);
+    CDC_Transmit_FS(buf, static_cast<uint16_t>(len));
     return len;
 }
 }
@@ -233,7 +233,7 @@ public:
     {
         closeTcp(socket_number);
 
-        return socket(sockestatic_cast<uint8_t>(socket_number), Sn_MR_TCP, local_port, 0) == static_cast<uint8_t>(socket_number);
+        return socket(static_cast<uint8_t>(socket_number), Sn_MR_TCP, local_port, 0) == static_cast<uint8_t>(socket_number);
     }
 
     void closeTcp(SOCKET_NUMBER socket_number)

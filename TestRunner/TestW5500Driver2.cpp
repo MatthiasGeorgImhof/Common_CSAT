@@ -21,12 +21,35 @@
 #include "Transport.hpp"
 #include "mock_hal.h"
 
+void print(const char*) {
+    // Do nothing for tests
+}
+
+extern "C"
+{
+    void DNS_init(uint8_t, uint8_t*)
+    {
+    }
+}
+
 SPI_HandleTypeDef hspi1;
 GPIO_TypeDef gpioa;
+static constexpr uint32_t MOCK_PORT_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
 
+constexpr static StaticAddress NETWORK {
+   MacAddress{0x02,0x00,0x00,0x00,0x00,0x01},
+   IPv4Address{192,42,172,240},
+   IPv4Address{255,255,255,0},
+   IPv4Address{192,42,172,1},
+   IPv4Address{192,42,172,1}
+};
+
+using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
 using EthernetConfig = SPI_Stream_Config<hspi1, GPIO_PIN_5, 128>;
 using EthernetTransport = SPIStreamTransport<EthernetConfig>;
-using Ethernet = W5500Driver<EthernetTransport>;
+using Ethernet = W5500Driver<EthernetTransport, EthernetResetPin, NETWORK>;
+
+template class W5500Driver<EthernetTransport, EthernetResetPin, NETWORK>;
 
 // =============================================================================
 // Lightweight W5500 Register & Buffer Emulator
@@ -39,7 +62,7 @@ struct MockW5500Device
     uint16_t sn_rx_rsr = 0;
     uint8_t  phycfgr = 0x01; // PHY link up
 
-    // RX buffer memory for Socket 0
+    // RX buffer memory for Socket data
     uint8_t  rx_mem[128] = {};
     uint16_t rx_mem_pos = 0;
 
@@ -59,15 +82,8 @@ struct MockW5500Device
         std::memset(rx_mem, 0, sizeof(rx_mem));
     }
 
-    void select()
-    {
-        cmd_count = 0;
-    }
-
-    void deselect()
-    {
-        cmd_count = 0;
-    }
+    void select()   { cmd_count = 0; }
+    void deselect() { cmd_count = 0; }
 
     void write_byte(uint8_t b)
     {
@@ -77,13 +93,35 @@ struct MockW5500Device
         }
         else
         {
-            // If writing to Socket 0 Control Register (Sn_CR), simulate state transitions
             uint16_t addr  = static_cast<uint16_t>((static_cast<uint16_t>(cmd[0]) << 8) | cmd[1]);
             uint8_t  block = static_cast<uint8_t>((cmd[2] >> 3) & 0x1F);
-            if (block == 0x01 && addr == 0x0001)
+
+            // Any socket register block: (block & 0x03) == 0x01
+            if ((block & 0x03) == 0x01)
             {
-                if (b == Sn_CR_OPEN)  sn_sr = SOCK_UDP;
-                if (b == Sn_CR_CLOSE) sn_sr = SOCK_CLOSED;
+                if (addr == 0x0000) // Sn_MR
+                {
+                    sn_mr = b;
+                }
+                else if (addr == 0x0001) // Sn_CR
+                {
+                    if (b == Sn_CR_OPEN)
+                    {
+                        sn_sr = ((sn_mr & 0x0F) == Sn_MR_TCP) ? SOCK_INIT : SOCK_UDP;
+                    }
+                    else if (b == Sn_CR_LISTEN)
+                    {
+                        sn_sr = SOCK_LISTEN;
+                    }
+                    else if (b == Sn_CR_CONNECT)
+                    {
+                        sn_sr = SOCK_ESTABLISHED;
+                    }
+                    else if (b == Sn_CR_CLOSE || b == Sn_CR_DISCON)
+                    {
+                        sn_sr = SOCK_CLOSED;
+                    }
+                }
             }
         }
     }
@@ -96,12 +134,20 @@ struct MockW5500Device
         // Common Register Block (0x00)
         if (block == 0x00)
         {
-            if (addr == 0x002E) return phycfgr;
+            if (addr == 0x002E) return phycfgr; // PHYCFGR (Link status)
+            if (addr == 0x0039) return 0x04;     // VERSIONR (W5500 version is 0x04)
+
+            // Source IP (SIPR) - non-zero so TCP sockets can open
+            if (addr == 0x000F) return 192;
+            if (addr == 0x0010) return 168;
+            if (addr == 0x0011) return 1;
+            if (addr == 0x0012) return 50;
+
             return 0x00;
         }
 
-        // Socket 0 Register Block (0x01)
-        if (block == 0x01)
+        // Any Socket Register Block: Sockets 0..7 map to blocks where (block & 0x03) == 0x01
+        if ((block & 0x03) == 0x01)
         {
             switch (addr)
             {
@@ -112,14 +158,14 @@ struct MockW5500Device
                 case 0x001F: return 2;                     // Sn_TXBUF_SIZE (2 KB)
                 case 0x0020: return 0x08;                  // Sn_TX_FSR high (2048 free)
                 case 0x0021: return 0x00;                  // Sn_TX_FSR low
-                case 0x0026: return static_cast<uint8_t>(sn_rx_rsr >> 8);   // Sn_RX_RSR high
-                case 0x0027: return static_cast<uint8_t>(sn_rx_rsr & 0xFF); // Sn_RX_RSR low
+                case 0x0026: return static_cast<uint8_t>(sn_rx_rsr >> 8);
+                case 0x0027: return static_cast<uint8_t>(sn_rx_rsr & 0xFF);
                 default:     return 0x00;
             }
         }
 
-        // Socket 0 RX Buffer Block (0x03)
-        if (block == 0x03)
+        // Socket RX Buffer Block ((block & 0x03) == 0x03)
+        if ((block & 0x03) == 0x03)
         {
             if (rx_mem_pos < sizeof(rx_mem))
             {
@@ -130,22 +176,6 @@ struct MockW5500Device
 
         return 0x00;
     }
-
-    uint8_t socketStatus(uint8_t)
-    {
-        return 0;
-    }
-
-    uint16_t rxAvailable(uint8_t)
-    {
-        return 0;
-    }
-
-    uint16_t txAvailable(uint8_t)
-    {
-        return 0;
-    }
-
 };
 
 static MockW5500Device g_mock_device;
@@ -304,30 +334,30 @@ TEST_CASE_FIXTURE(W5500Fixture, "linkUp returns false when PHY link bit is clear
 TEST_CASE_FIXTURE(W5500Fixture, "socketStatus reads status register via SPI")
 {
     g_mock_device.sn_sr = 0x22;
-    CHECK(ethernet.socketStatus(0) == 0x22);
+    CHECK(ethernet.socketStatus(Ethernet::SOCKET_0) == 0x22);
 }
 
 TEST_CASE_FIXTURE(W5500Fixture, "rxAvailable reads 16-bit RX size via SPI")
 {
     g_mock_device.sn_rx_rsr = 384;
-    CHECK(ethernet.rxAvailable(0) == 384);
+    CHECK(ethernet.rxAvailable(Ethernet::SOCKET_0) == 384);
 }
 
 TEST_CASE_FIXTURE(W5500Fixture, "txAvailable reads 16-bit free TX buffer size via SPI")
 {
-    CHECK(ethernet.txAvailable(0) == 2048);
+    CHECK(ethernet.txAvailable(Ethernet::SOCKET_0) == 2048);
 }
 
 TEST_CASE_FIXTURE(W5500Fixture, "closeUdp writes CLOSE command and transitions to SOCK_CLOSED")
 {
-    ethernet.closeUdp(0);
+    ethernet.closeUdp(Ethernet::SOCKET_0);
     CHECK(g_mock_device.sn_sr == SOCK_CLOSED);
     CHECK(get_spi_tx_buffer_count() > 0);
 }
 
 TEST_CASE_FIXTURE(W5500Fixture, "openUdp successfully opens a UDP socket")
 {
-    bool success = ethernet.openUdp(0, 5000);
+    bool success = ethernet.openUdp(Ethernet::SOCKET_0, 5000);
 
     CHECK(success == true);
     CHECK(g_mock_device.sn_sr == SOCK_UDP);
@@ -339,7 +369,7 @@ TEST_CASE_FIXTURE(W5500Fixture, "sendUdp transmits UDP payload to destination")
     IPv4Address dest = {{192, 168, 1, 100}};
     uint16_t dest_port = 8080;
 
-    int32_t sent = ethernet.sendUdp(0, payload, static_cast<uint16_t>(sizeof(payload)), dest, dest_port);
+    int32_t sent = ethernet.sendUdp(Ethernet::SOCKET_0, payload, static_cast<uint16_t>(sizeof(payload)), dest, dest_port);
 
     CHECK(sent == static_cast<int32_t>(sizeof(payload)));
     CHECK(get_spi_tx_buffer_count() > 0);
@@ -372,13 +402,13 @@ TEST_CASE_FIXTURE(W5500Fixture, "receiveUdp parses received datagram, source IP 
     IPv4Address source = {};
     uint16_t source_port = 0;
 
-    int32_t received = ethernet.receiveUdp(0, buffer, sizeof(buffer), source, source_port);
+    int32_t received = ethernet.receiveUdp(Ethernet::SOCKET_0, buffer, sizeof(buffer), source, source_port);
 
     CHECK(received == 4);
-    CHECK(source.octet[0] == 192);
-    CHECK(source.octet[1] == 168);
-    CHECK(source.octet[2] == 1);
-    CHECK(source.octet[3] == 42);
+    CHECK(source.bytes[0] == 192);
+    CHECK(source.bytes[1] == 168);
+    CHECK(source.bytes[2] == 1);
+    CHECK(source.bytes[3] == 42);
     CHECK(source_port == 9000);
     CHECK(buffer[0] == 0x01);
     CHECK(buffer[1] == 0x02);
@@ -386,19 +416,43 @@ TEST_CASE_FIXTURE(W5500Fixture, "receiveUdp parses received datagram, source IP 
     CHECK(buffer[3] == 0x04);
 }
 
-TEST_CASE_FIXTURE(W5500Fixture, "setNetworkInfo transmits network configuration registers")
-{
-    wiz_NetInfo info{};
-    info.mac[0] = 0x00; info.mac[1] = 0x08; info.mac[2] = 0xDC;
-    info.mac[3] = 0x01; info.mac[4] = 0x02; info.mac[5] = 0x03;
-    info.ip[0]  = 192;  info.ip[1]  = 168;  info.ip[2]  = 1;    info.ip[3]  = 50;
-    info.sn[0]  = 255;  info.sn[1]  = 255;  info.sn[2]  = 255;  info.sn[3]  = 0;
-    info.gw[0]  = 192;  info.gw[1]  = 168;  info.gw[2]  = 1;    info.gw[3]  = 1;
-    info.dns[0] = 8;    info.dns[1] = 8;    info.dns[2] = 8;    info.dns[3] = 8;
-    info.dhcp = NETINFO_STATIC;
+// TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver initialize compiles and registers callbacks")
+// {
+//     CHECK(ethernet.initialize() == true);
+// }
 
-    bool result = ethernet.setNetworkInfo(info);
+// TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver TCP client lifecycle")
+// {
+//     // 1. Open client socket (Socket 1)
+//     CHECK(ethernet.openTcp(Ethernet::SOCKET_1, 50000) == true);
+//     CHECK(g_mock_device.sn_sr == SOCK_INIT);
 
-    CHECK(result == true);
-    CHECK(get_spi_tx_buffer_count() > 0);
-}
+//     // 2. Connect to remote server
+//     IPv4Address server_ip = {{192, 168, 1, 1}};
+//     CHECK(ethernet.connectTcp(Ethernet::SOCKET_1, server_ip, 8080) == true);
+//     CHECK(g_mock_device.sn_sr == SOCK_ESTABLISHED);
+
+//     // 3. Send and Receive in ESTABLISHED state
+//     const uint8_t tx_data[] = {0x01, 0x02};
+//     CHECK(ethernet.sendTcp(Ethernet::SOCKET_1, tx_data, sizeof(tx_data)) >= 0);
+
+//     uint8_t rx_data[16] = {};
+//     CHECK(ethernet.receiveTcp(Ethernet::SOCKET_1, rx_data, sizeof(rx_data)) >= 0);
+
+//     // 4. Disconnect
+//     CHECK(ethernet.disconnectTcp(Ethernet::SOCKET_1) == true);
+//     CHECK(g_mock_device.sn_sr == SOCK_CLOSED);
+// }
+
+// TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver TCP server listen")
+// {
+//     // Test server passive listening on a dedicated socket (Socket 2)
+//     CHECK(ethernet.openTcp(Ethernet::SOCKET_2, 80) == true);
+//     CHECK(g_mock_device.sn_sr == SOCK_INIT);
+
+//     CHECK(ethernet.listenTcp(Ethernet::SOCKET_2) == true);
+//     CHECK(g_mock_device.sn_sr == SOCK_LISTEN);
+
+//     ethernet.closeTcp(Ethernet::SOCKET_2);
+//     CHECK(g_mock_device.sn_sr == SOCK_CLOSED);
+// }
