@@ -420,10 +420,13 @@ TEST_CASE_FIXTURE(W5500Fixture, "receiveUdp parses received datagram, source IP 
     CHECK(buffer[3] == 0x04);
 }
 
-// TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver initialize compiles and registers callbacks")
-// {
-//     CHECK(ethernet.initialize() == true);
-// }
+TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver initialize compiles and registers callbacks")
+{
+    uint8_t data[] = {0x04}; // W5500 version
+    inject_spi_rx_data(data, sizeof(data));
+    auto result = ethernet.initialize();
+    CHECK(result == true);
+}
 
 // TEST_CASE_FIXTURE(W5500Fixture, "W5500Driver TCP client lifecycle")
 // {
