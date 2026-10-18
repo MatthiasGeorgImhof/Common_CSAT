@@ -81,9 +81,9 @@ public:
         this->driver_.closeTcp(this->socket_);
     }
 
-    bool connectTo(const IPv4Address& remote_address, uint16_t remote_port)
+    bool connectTo(const Endpoint& destination)
     {
-        return this->driver_.connectTcp(this->socket_, remote_address, remote_port);
+        return this->driver_.connectTcp(this->socket_, destination.address, destination.port);
     }
 
     bool disconnect()
