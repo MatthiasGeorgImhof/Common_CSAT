@@ -13,6 +13,7 @@
 #include "ServiceManager.hpp"
 #include "SubscriptionManager.hpp"
 #include "ProcessRxQueue.hpp"
+#include "GpioPin.hpp"
 #include "Task.hpp"
 #include "TaskCheckMemory.hpp"
 #include "TaskBlinkLED.hpp"
@@ -134,6 +135,11 @@ GPIO_TypeDef *GPIOC = nullptr;
 #define LED5_Pin GPIO_PIN_8
 #define LED5_GPIO_Port GPIOA
 
+static constexpr uint32_t GPIOA_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+static constexpr uint32_t GPIOB_BASE = static_cast<uint32_t>(0xCAFECAFE); // value irrelevant for mock 
+static constexpr uint32_t GPIOC_BASE = static_cast<uint32_t>(0xAABBCCDD); // value irrelevant for mock 
+
+
 TEST_CASE("TaskMainLoop: TaskSendHeartBeat TaskBlinkLED TaskCheckMemory")
 {
     o1heap = o1heapInit(o1heap_buffer, O1HEAP_SIZE);
@@ -157,8 +163,9 @@ TEST_CASE("TaskMainLoop: TaskSendHeartBeat TaskBlinkLED TaskCheckMemory")
     using TSHeartSerard = TaskSendHeartBeat<SerardCyphal>;
     register_task_with_heap<TSHeartSerard>(registration_manager, 1000U, 100U, static_cast<CyphalTransferID>(0), adapters);
 
-    using TBlink = TaskBlinkLED;
-    register_task_with_heap<TBlink>(registration_manager, GPIOC, LED1_Pin, 1000U, 100U);
+    using LEDPin  = GpioPin<GPIOC_BASE, GPIO_PIN_5>;
+    using TBlink = TaskBlinkLED<LEDPin>;
+    register_task_with_heap<TBlink>(registration_manager, 1000U, 100U);
 
     using TCheckMem = TaskCheckMemory;
     register_task_with_heap<TCheckMem>(registration_manager, o1heap, 2000U, 100U);

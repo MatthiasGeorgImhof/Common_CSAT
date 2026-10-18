@@ -9,17 +9,20 @@
 #include "mock_hal.h"
 #endif
 
-void TaskBlinkLED::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
-{
-	manager->subscribe(PURE_HANDLER, task);
-}
+// template<typename LEDPin>
+// void TaskBlinkLED<LEDPin>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+// {
+// 	manager->subscribe(PURE_HANDLER, task);
+// }
 
-void TaskBlinkLED::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
-{
-	manager->unsubscribe(PURE_HANDLER, task);
-}
+// template<typename LEDPin>
+// void TaskBlinkLED<LEDPin>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+// {
+// 	manager->unsubscribe(PURE_HANDLER, task);
+// }
 
-void TaskBlinkLED::handleTaskImpl()
-{
-	HAL_GPIO_TogglePin(GPIO_, pins_);
-}
+// template<typename LEDPin>
+// void TaskBlinkLED<LEDPin>::handleTaskImpl()
+// {
+// 	led_pin_.toggle();
+// }

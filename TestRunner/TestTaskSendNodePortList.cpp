@@ -26,6 +26,13 @@
 using Heap = HeapAllocation<>;
 using TaskAlloc = SafeAllocator<TaskSendHeartBeat<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>>,Heap>;
 
+static constexpr uint32_t GPIOC_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+
+GPIO_TypeDef GPIOx;
+
+using LEDPin  = GpioPin<GPIOC_BASE, GPIO_PIN_5>;
+using TBlink = TaskBlinkLED<LEDPin>;
+
 TEST_CASE("TaskSendNodePortList: handleTask publishes NodePortList")
 {
     // Set up mock environment
@@ -199,8 +206,6 @@ TEST_CASE("TaskSendNodePortList: snippet to registration with SafeAllocator")
 TEST_CASE("TaskSendNodePortList: main loop snippet")
 {
     constexpr CyphalNodeID cyphal_node_id = 11;
-    GPIO_TypeDef GPIOC;
-    uint16_t LED1_Pin = 1;
 
     Heap::initialize();
     
@@ -228,8 +233,8 @@ TEST_CASE("TaskSendNodePortList: main loop snippet")
     SafeAllocator<TaskSubscribeNodePortList<Cyphal<LoopardAdapter>>, Heap> alloc_TaskSubscribeNodePortList;
     registration_manager.add(alloc_unique_custom<TaskSubscribeNodePortList<Cyphal<LoopardAdapter>>>(alloc_TaskSubscribeNodePortList, &subscription_manager, 10000U, 100U, adapters));
 
-    SafeAllocator<TaskBlinkLED, Heap> alloc_TaskBlinkLED;
-    registration_manager.add(alloc_unique_custom<TaskBlinkLED>(alloc_TaskBlinkLED, &GPIOC, LED1_Pin, 1000U, 100U));
+    SafeAllocator<TBlink, Heap> alloc_TBlink;
+    registration_manager.add(alloc_unique_custom<TBlink>(alloc_TBlink, 1000U, 100U));
 
     SafeAllocator<TaskCheckMemory, Heap> alloc_TaskCheckMemory;
     registration_manager.add(alloc_unique_custom<TaskCheckMemory>(alloc_TaskCheckMemory, Heap::getO1Heap(), 100U, 50U));

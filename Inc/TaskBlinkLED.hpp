@@ -2,13 +2,16 @@
 
 #include <stdint.h>
 #include "Task.hpp"
+#include "GpioPin.hpp"
+#include "RegistrationManager.hpp"
 
-class RegistrationManager;
+// class RegistrationManager;
 
+template<typename LEDPin>
 class TaskBlinkLED : public Task {
 public:
 TaskBlinkLED() = delete;
-TaskBlinkLED(GPIO_TypeDef* GPIO, uint16_t pins, uint32_t interval, uint32_t tick) : Task(interval, tick), GPIO_(GPIO), pins_(pins) {}
+TaskBlinkLED(uint32_t interval, uint32_t tick) : Task(interval, tick) {}
 
 	virtual void handleMessage(std::shared_ptr<CyphalTransfer> /*transfer*/) override {};
 
@@ -18,6 +21,23 @@ TaskBlinkLED(GPIO_TypeDef* GPIO, uint16_t pins, uint32_t interval, uint32_t tick
     virtual void handleTaskImpl() override;
 
 protected:
-GPIO_TypeDef* GPIO_;
-uint16_t pins_;
+	LEDPin led_pin_;
 };
+
+template<typename LEDPin>
+void TaskBlinkLED<LEDPin>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+{
+	manager->subscribe(PURE_HANDLER, task);
+}
+
+template<typename LEDPin>
+void TaskBlinkLED<LEDPin>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
+{
+	manager->unsubscribe(PURE_HANDLER, task);
+}
+
+template<typename LEDPin>
+void TaskBlinkLED<LEDPin>::handleTaskImpl()
+{
+	led_pin_.toggle();
+}

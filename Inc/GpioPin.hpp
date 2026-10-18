@@ -35,6 +35,11 @@ struct GpioPin {
     bool read() const {
         return HAL_GPIO_ReadPin(port(), Pin) == GPIO_PIN_SET;
     }
+
+    void toggle() const {
+        HAL_GPIO_TogglePin(port(), Pin);
+    }
+
 };
 
 // GPIOPin.hpp
