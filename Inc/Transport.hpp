@@ -228,22 +228,20 @@ private:
 
 #ifdef HAS_SPI_HANDLE_TYPEDEF
 
-template <SPI_HandleTypeDef &HandleRef, uint16_t Pin,
+template <SPI_HandleTypeDef &HandleRef, typename CSPin,
           std::size_t MaxTransferSize, uint32_t Timeout = 100>
 struct SPI_Register_Config
 {
-    SPI_Register_Config() = delete;
-    SPI_Register_Config(GPIO_TypeDef *csport) : csPort(csport) {}
+    explicit SPI_Register_Config() : cs_pin_{} {}
     using transport_tag = spi_tag;
     using mode_tag = register_mode_tag;
 
     static SPI_HandleTypeDef &handle() { return HandleRef; }
-    static constexpr uint16_t csPin = Pin;
     static constexpr uint32_t timeout = Timeout;
     static constexpr std::size_t max_transfer_size = MaxTransferSize;
 
 public:
-    GPIO_TypeDef *csPort;
+    CSPin cs_pin_;
 
     static_assert(std::is_same_v<decltype(HandleRef), SPI_HandleTypeDef &>, "Handle must be SPI_HandleTypeDef&");
     static_assert(Timeout > 0 && Timeout < 10000, "Timeout must be a reasonable value");
@@ -308,29 +306,26 @@ public:
 private:
     Config config;
 
-    void select() const { HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_RESET); }
-    void deselect() const { HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_SET); }
+    void select() const { config.cs_pin_.low(); }
+    void deselect() const { config.cs_pin_.high(); }
 };
 
-template <SPI_HandleTypeDef &HandleRef,
-          uint16_t Pin,
+template <SPI_HandleTypeDef &HandleRef, typename CSPin,
           std::size_t MaxTransferSize,
           uint32_t Timeout = 100>
 struct SPI_Stream_Config
 {
-    SPI_Stream_Config() = delete;
-    SPI_Stream_Config(GPIO_TypeDef *csport) : csPort(csport) {}
+    explicit SPI_Stream_Config() : cs_pin_{} {};
 
     using transport_tag = spi_tag;
     using mode_tag = stream_mode_tag;
 
     static SPI_HandleTypeDef &handle() { return HandleRef; }
-    static constexpr uint16_t csPin = Pin;
     static constexpr uint32_t timeout = Timeout;
     static constexpr std::size_t max_transfer_size = MaxTransferSize;
 
 public:
-    GPIO_TypeDef *csPort;
+    CSPin cs_pin_;
 };
 
 template <typename Config>
@@ -402,12 +397,12 @@ public:
 
     void select() const 
     { 
-        HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_RESET); 
+        config.cs_pin_.low(); 
     }
     
     void deselect() const 
     { 
-        HAL_GPIO_WritePin(config.csPort, Config::csPin, GPIO_PIN_SET); 
+        config.cs_pin_.high(); 
     }
 
 private:

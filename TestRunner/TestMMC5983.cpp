@@ -44,11 +44,15 @@ TEST_CASE("MMC5983Core parseRawMagnetometerData decodes packed buffer")
 #
 #
 #
-
 SPI_HandleTypeDef mock_spi;
-GPIO_TypeDef mock_gpio;
 
-using Config = SPI_Register_Config<mock_spi, GPIO_PIN_5, 128>;
+GPIO_TypeDef mock_gpio = {};
+static constexpr uint32_t MOCK_GPIO_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+auto constexpr CS_PIN = GPIO_PIN_5; // Pin 5 for CS
+
+// Configure the Transport Layer
+using CS_Pin = GpioPin<MOCK_GPIO_BASE, CS_PIN>;
+using Config = SPI_Register_Config<mock_spi, CS_Pin, 128>;
 using Transport = SPIRegisterTransport<Config>;
 using Magnetometer = MMC5983<Transport>;
 
@@ -58,7 +62,7 @@ TEST_CASE("MMC5983 readChipID returns correct ID")
     uint8_t id[] = {0x30}; // ID
     inject_spi_rx_data(id, sizeof(id));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     Magnetometer mag(transport);
 
@@ -79,7 +83,7 @@ TEST_CASE("MMC5983 readRawMagnetometer returns decoded values")
     };
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     Magnetometer mag(transport);
 
@@ -95,7 +99,7 @@ TEST_CASE("MMC5983 readThermometer returns calibrated temperature")
     uint8_t temp[] = {0x4B}; // raw = 75 → -75 + 75*0.8 = -15.0 °C
     inject_spi_rx_data(temp, sizeof(temp));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     Magnetometer mag(transport);
 
@@ -108,7 +112,7 @@ TEST_CASE("MMC5983 configureContinuousMode writes correct registers")
 {
     clear_spi_tx_buffer();
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     Magnetometer mag(transport);
 

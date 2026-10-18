@@ -18,8 +18,12 @@ constexpr static StaticAddress NETWORK {
    IPv4Address{192,42,172,1}
 };
 
-using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
-using EthernetConfig = SPI_Stream_Config<hspi1, GPIO_PIN_5, 128>;
+auto constexpr CS_PIN = GPIO_PIN_5; // Pin 5 for CS
+auto constexpr RESET_PIN = GPIO_PIN_11; // Pin 11 for Reset
+
+using EthernetCsPin  = GpioPin<MOCK_PORT_BASE, CS_PIN>;
+using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, RESET_PIN>;
+using EthernetConfig = SPI_Stream_Config<hspi1, EthernetCsPin, 128>;
 using EthernetTransport = SPIStreamTransport<EthernetConfig>;
 using Ethernet = W5500Driver<EthernetTransport, EthernetResetPin, NETWORK>;
 
@@ -29,7 +33,7 @@ struct W5500Fixture
     EthernetTransport transport;
     Ethernet ethernet;
 
-    W5500Fixture() : config(&gpioa), transport(config), ethernet(transport)
+    W5500Fixture() : transport(config), ethernet(transport)
     {
         clear_spi_tx_buffer();
         clear_spi_rx_buffer();

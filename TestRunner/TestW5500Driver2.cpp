@@ -44,8 +44,12 @@ constexpr static StaticAddress NETWORK {
    IPv4Address{192,42,172,1}
 };
 
-using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
-using EthernetConfig = SPI_Stream_Config<hspi1, GPIO_PIN_5, 128>;
+auto constexpr CS_PIN = GPIO_PIN_5; // Pin 5 for CS
+auto constexpr RESET_PIN = GPIO_PIN_11; // Pin 11 for Reset
+
+using EthernetCsPin  = GpioPin<MOCK_PORT_BASE, CS_PIN>;
+using EthernetResetPin  = GpioPin<MOCK_PORT_BASE, RESET_PIN>;
+using EthernetConfig = SPI_Stream_Config<hspi1, EthernetCsPin, 128>;
 using EthernetTransport = SPIStreamTransport<EthernetConfig>;
 using Ethernet = W5500Driver<EthernetTransport, EthernetResetPin, NETWORK>;
 
@@ -240,7 +244,7 @@ struct W5500Fixture
     EthernetTransport transport;
     Ethernet ethernet;
 
-    W5500Fixture() : config(&gpioa), transport(config), ethernet(transport)
+    W5500Fixture() : transport(config), ethernet(transport)
     {
         g_active_driver = &ethernet;
         g_mock_device.reset();
@@ -313,10 +317,10 @@ TEST_CASE_FIXTURE(W5500Fixture, "Burst read forwards to transport")
 TEST_CASE_FIXTURE(W5500Fixture, "Chip select callback controls GPIO pin state")
 {
     ethernet.wizchipSelect();
-    CHECK(get_gpio_pin_state(&gpioa, GPIO_PIN_5) == GPIO_PIN_RESET);
+    CHECK(get_gpio_pin_state(&gpioa, CS_PIN) == GPIO_PIN_RESET);
 
     ethernet.wizchipDeselect();
-    CHECK(get_gpio_pin_state(&gpioa, GPIO_PIN_5) == GPIO_PIN_SET);
+    CHECK(get_gpio_pin_state(&gpioa, CS_PIN) == GPIO_PIN_SET);
 }
 
 TEST_CASE_FIXTURE(W5500Fixture, "linkUp returns true when PHY link bit is set")

@@ -149,11 +149,12 @@ TEST_CASE("I2CStreamTransport read() reads raw bytes from RX buffer")
 
 SPI_HandleTypeDef mock_spi;
 GPIO_TypeDef GPIOA;
+static constexpr uint32_t MOCK_GPIO_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+auto constexpr CS_PIN = GPIO_PIN_5; // Pin 5 for CS
 
-using TestSPIConfig =
-    SPI_Register_Config<mock_spi, GPIO_PIN_5, 128>;
-using TestSPITransport =
-    SPIRegisterTransport<TestSPIConfig>;
+using CS_Pin = GpioPin<MOCK_GPIO_BASE, CS_PIN>;
+using TestSPIConfig = SPI_Register_Config<mock_spi, CS_Pin, 128>;
+using TestSPITransport = SPIRegisterTransport<TestSPIConfig>;
 
 // ------------------------------------------------------------
 // write_reg()
@@ -162,7 +163,7 @@ TEST_CASE("SPIRegisterTransport write_reg() transmits register and payload with 
 {
     clear_spi_tx_buffer();
 
-    TestSPIConfig config(&GPIOA);
+    TestSPIConfig config;
     TestSPITransport transport(config);
 
     uint8_t reg = 0x7E;
@@ -189,7 +190,7 @@ TEST_CASE("SPIRegisterTransport read_reg() sends register then reads response wi
     uint8_t injected[] = {0x55, 0x66};
     inject_spi_rx_data(injected, sizeof(injected));
 
-    TestSPIConfig config(&GPIOA);
+    TestSPIConfig config;
     TestSPITransport transport(config);
 
     uint8_t rx[2] = {};
@@ -211,16 +212,14 @@ TEST_CASE("SPIRegisterTransport read_reg() sends register then reads response wi
 // SPI Tests (Stream Mode)
 // -----------------------------------------
 
-using TestSPIStreamConfig =
-    SPI_Stream_Config<mock_spi, GPIO_PIN_5, 128>;
-using TestSPIStreamTransport =
-    SPIStreamTransport<TestSPIStreamConfig>;
+using TestSPIStreamConfig = SPI_Stream_Config<mock_spi, CS_Pin, 128>;
+using TestSPIStreamTransport = SPIStreamTransport<TestSPIStreamConfig>;
 
 TEST_CASE("SPIStreamTransport write() transmits raw payload with CS toggled")
 {
     clear_spi_tx_buffer();
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     uint8_t tx[] = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -238,7 +237,7 @@ TEST_CASE("SPIStreamTransport read() clocks dummy bytes and receives data")
     uint8_t injected[] = {0x11, 0x22, 0x33};
     inject_spi_rx_data(injected, sizeof(injected));
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     uint8_t rx[3] = {};
@@ -259,7 +258,7 @@ TEST_CASE("SPIStreamTransport transfer() performs full-duplex exchange")
     uint8_t injected[] = {0xAA, 0xBB, 0xCC};
     inject_spi_rx_data(injected, sizeof(injected));
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     uint8_t tx[] = {0x01, 0x02, 0x03};
@@ -279,7 +278,7 @@ TEST_CASE("SPIStreamTransport manual select and deselect")
 {
     reset_gpio_port_state(&GPIOA);
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     transport.select();
@@ -295,7 +294,7 @@ TEST_CASE("SPIStreamTransport write_nocs does not change CS")
 {
     clear_spi_tx_buffer();
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     transport.select();
@@ -322,7 +321,7 @@ TEST_CASE("SPIStreamTransport transfer_nocs keeps CS asserted")
 
     inject_spi_rx_data(injected, sizeof(injected));
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     transport.select();
@@ -345,7 +344,7 @@ TEST_CASE("SPIStreamTransport supports multi-part transaction under one CS")
     clear_spi_tx_buffer();
     reset_gpio_port_state(&GPIOA);
 
-    TestSPIStreamConfig config(&GPIOA);
+    TestSPIStreamConfig config;
     TestSPIStreamTransport transport(config);
 
     uint8_t header[] =
@@ -571,16 +570,12 @@ TEST_CASE("SCCB_Register_Transport read_reg() reads injected byte")
 // -----------------------------------------
 
 // I2C register‑mode transport
-using TestI2CConfig =
-    I2C_Register_Config<mock_i2c, 0x42, I2CAddressWidth::Bits8>;
-using TestI2CTransport =
-    I2CRegisterTransport<TestI2CConfig>;
+using TestI2CConfig = I2C_Register_Config<mock_i2c, 0x42, I2CAddressWidth::Bits8>;
+using TestI2CTransport = I2CRegisterTransport<TestI2CConfig>;
 
 // SPI register‑mode transport
-using TestSPIConfig =
-    SPI_Register_Config<mock_spi, GPIO_PIN_5, 128>;
-using TestSPITransport =
-    SPIRegisterTransport<TestSPIConfig>;
+using TestSPIConfig = SPI_Register_Config<mock_spi, CS_Pin, 128>;
+using TestSPITransport = SPIRegisterTransport<TestSPIConfig>;
 
 // UART stream‑mode transport
 using TestUARTConfig = UART_Config<mock_uart>;

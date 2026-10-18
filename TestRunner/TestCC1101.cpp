@@ -11,24 +11,21 @@
 static SPI_HandleTypeDef hspi1;
 
 // Fake GPIO port addresses (NTTPs for GpioPin)
-constexpr uint32_t MOCK_PORT_B = 0x1243;
-
-// Real GPIO_TypeDef objects for the mock HAL
 GPIO_TypeDef mock_port_b = {};
+static constexpr uint32_t MOCK_PORT_B_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
 
-static constexpr uint16_t CS_PIN   = GPIO_PIN_10;
-static constexpr uint16_t MISO_PIN = GPIO_PIN_11;
+auto constexpr CS_PIN = GPIO_PIN_5; // Pin 5 for CS
+auto constexpr MISO_PIN = GPIO_PIN_11; // Pin 11 for MISO
 
 // Configure the Transport Layer
-using CC1101_Config    = SPI_Register_Config<hspi1, CS_PIN, 128, 100>;
+using CS_Pin = GpioPin<MOCK_PORT_B_BASE, CS_PIN>;
+using MISO_Pin = GpioPin<MOCK_PORT_B_BASE, MISO_PIN>;
+
+using CC1101_Config    = SPI_Register_Config<hspi1, CS_Pin, 128, 100>;
 using CC1101_Transport = SPIRegisterTransport<CC1101_Config>;
 
-// GPIO pins as types
-using CSPin  = GpioPin<MOCK_PORT_B, CS_PIN>;
-using MISOPin = GpioPin<MOCK_PORT_B, MISO_PIN>;
-
 // Alias for the radio type
-using Radio = CC1101<CC1101_Transport, CSPin, MISOPin>;
+using Radio = CC1101<CC1101_Transport, CS_Pin, MISO_Pin>;
 
 struct CC1101Fixture {
     CC1101_Config    config;
@@ -36,16 +33,15 @@ struct CC1101Fixture {
     Radio            radio;
 
     CC1101Fixture()
-        : config(&mock_port_b),
-          transport(config),
-          radio(transport, CSPin{}, MISOPin{})
+        : transport(config),
+          radio(transport, CS_Pin{}, MISO_Pin{})
     {
         clear_spi_tx_buffer();
         clear_spi_rx_buffer();
         reset_gpio_port_state(&mock_port_b);
         init_spi_handle(&hspi1);
 
-        CSPin{}.high();   // ensure CS starts high
+        CS_Pin{}.high();   // ensure CS starts high
     }
 };
 
