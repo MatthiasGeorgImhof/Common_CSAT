@@ -28,20 +28,20 @@ struct MacAddress
 
 struct StaticAddress
 {
-	MacAddress mac;
-	IPv4Config config;
+    MacAddress mac;
+    IPv4Config config;
 };
 
 struct DynamicAddress
 {
-	MacAddress mac;
+    MacAddress mac;
 };
 
 
 struct NetworkInfo
 {
-	MacAddress mac;
-	IPv4Config config;
+    MacAddress mac;
+    IPv4Config config;
     bool dhcp;
 };
 

@@ -34,8 +34,6 @@ BIN_DIR = bin
 $(shell mkdir -p \
 	$(BIN_DIR)/src \
 	$(BIN_DIR)/sgp4 \
-	$(BIN_DIR)/wiznet \
-	$(BIN_DIR)/wiznet/W5500 \
 	$(BIN_DIR)/3rdParty \
 	$(BIN_DIR)/mock_hal \
 )
@@ -48,7 +46,6 @@ TEST_FILES := $(wildcard Test*.cpp)
 # Object file mapping
 SRC_OBJECTS := $(patsubst ../Src/%.cpp,$(BIN_DIR)/src/%.o,$(filter ../Src/%,$(SRC_FILES)))
 SGP4_OBJECTS := $(patsubst ../3rdParty/SGP4/%.cpp,$(BIN_DIR)/sgp4/%.o,$(filter ../3rdParty/SGP4/%,$(SRC_FILES)))
-WIZNET_OBJECTS := $(patsubst ../3rdParty/Wiznet_W5500/%.c,$(BIN_DIR)/wiznet/%.o,$(filter ../3rdParty/Wiznet_W5500/%,$(SRC_FILES)))
 THIRDPARTY_OBJECTS := $(patsubst 3rdParty/%.c,$(BIN_DIR)/3rdParty/%.o,$(filter 3rdParty/%,$(SRC_FILES)))
 
 MOCK_HAL_OBJECTS := $(patsubst ../Src/mock_hal/%.c,$(BIN_DIR)/mock_hal/%.o,$(MOCK_HAL_SRC_FILES))
@@ -77,8 +74,7 @@ RELAXED_TESTS := 	TestDetumblerSystem \
 				 	TestNamedVector3f \
 				 	TestOrientationTracker \
 				 	TestPositionTracker9D \
-				 	TestTaskSGP4 \
-					TestW5500Driver2
+				 	TestTaskSGP4 
 
 # Some SRC files require relaxed flags (Eigen, etc.)
 RELAXED_SRC := 		coordinate_rotators.cpp \
@@ -137,8 +133,6 @@ EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o 
 EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
 EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o src/TaskCheckMemory.o
-EXTRA_OBJS_TestW5500Driver := wiznet/wizchip_conf.o wiznet/socket.o wiznet/dhcp.o wiznet/W5500/w5500.o 
-EXTRA_OBJS_TestW5500Driver2 := wiznet/wizchip_conf.o wiznet/socket.o wiznet/dhcp.o wiznet/W5500/w5500.o 
 
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(WIZNET_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
@@ -175,9 +169,6 @@ $(BIN_DIR)/src/%.o: ../Src/%.cpp
 $(BIN_DIR)/sgp4/%.o: ../3rdParty/SGP4/%.cpp
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CXX) -c $< $$FLAGS $(INCLUDE_PATHS) -o $@
-
-$(BIN_DIR)/wiznet/%.o: ../3rdParty/Wiznet_W5500/%.c
-	$(CXX) -c $< $(PERMISSIVE_FLAGS) $(INCLUDE_PATHS) -o $@
 
 $(BIN_DIR)/3rdParty/%.o: 3rdParty/%.c
 	FLAGS="$(call choose_flags,$<)"; \

@@ -149,10 +149,15 @@ public:
         wiz_NetInfo net{};
 
         memcpy(net.mac, Configuration.mac.bytes, sizeof(Configuration.mac.bytes));
-        memcpy(net.ip,  Configuration.config.address.bytes, sizeof(Configuration.config.address.bytes));
-        memcpy(net.sn,  Configuration.config.subnet.bytes, sizeof(Configuration.config.subnet.bytes));
-        memcpy(net.gw,  Configuration.config.gateway.bytes, sizeof(Configuration.config.gateway.bytes));
-        memcpy(net.dns, Configuration.config.dns.bytes, sizeof(Configuration.config.dns.bytes));
+
+        if constexpr (std::same_as<std::remove_cvref_t<decltype(Configuration)>, StaticAddress>)
+        {
+            memcpy(net.ip,  Configuration.config.address.bytes, sizeof(Configuration.config.address.bytes));
+            memcpy(net.sn,  Configuration.config.subnet.bytes, sizeof(Configuration.config.subnet.bytes));
+            memcpy(net.gw,  Configuration.config.gateway.bytes, sizeof(Configuration.config.gateway.bytes));
+            memcpy(net.dns, Configuration.config.dns.bytes, sizeof(Configuration.config.dns.bytes));
+        }
+
         net.dhcp = NETINFO_STATIC;
         return net;
     }
@@ -352,7 +357,3 @@ private:
     static inline W5500Driver *active_ = nullptr;
 
 };
-
-// static_assert(W5500DriverUdpConcept<W5500Driver<MyTransport>>);
-
-// static_assert(W5500DriverTcpConcept<W5500Driver<MyTransport>>);
