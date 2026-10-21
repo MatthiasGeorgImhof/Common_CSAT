@@ -6,9 +6,11 @@
 #include "Transport.hpp"
 
 SPI_HandleTypeDef mock_spi;
-GPIO_TypeDef mock_gpio;
 
-using Config = SPI_Register_Config<mock_spi, GPIO_PIN_5, 128>;
+static constexpr uint32_t MOCK_PORT_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+
+using CSPin = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
+using Config = SPI_Register_Config<mock_spi, CSPin, 128>;
 using Transport = SPIRegisterTransport<Config>;
 using IMUCombo = BMI270_MMC5983<Transport>;
 
@@ -24,7 +26,7 @@ TEST_CASE("BMI270_MMC5983 configure succeeds with correct MMC5983 ID")
     uint8_t id_response[] = {0x00, 0x30}; // dummy + MMC5983_ID
     inject_spi_rx_data(id_response, sizeof(id_response));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     IMUCombo imu(transport);
 
@@ -39,7 +41,7 @@ TEST_CASE("BMI270_MMC5983 configure fails with incorrect ID")
     uint8_t bad_id[] = {0x42};
     inject_spi_rx_data(bad_id, sizeof(bad_id));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     IMUCombo imu(transport);
 
@@ -54,7 +56,7 @@ TEST_CASE("BMI270AuxTransport write_then_read shifts dummy byte")
     uint8_t raw[] = {0xff, 0x11, 0x22, 0x33}; // dummy + X_LSB, X_MSB, Y_LSB
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> bmi(transport);
     BMI270AuxTransport<BMI270<Transport>> aux(bmi);
@@ -84,7 +86,7 @@ uint8_t raw[] = {
 
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     IMUCombo imu(transport);
 

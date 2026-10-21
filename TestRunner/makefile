@@ -4,10 +4,12 @@ CXXFLAGS = -g -MMD -std=c++20
 EXTRA_FLAGS = -Wall -Wextra -pedantic -Werror -Wconversion -fconcepts-diagnostics-depth=2 -Werror=maybe-uninitialized
 EXTRA_EXTRA_FLAGS = -Wzero-as-null-pointer-constant -Wsign-conversion
 LOGGER_DEFINES = -DLOGGER_ENABLED # -DLOGGER_OUTPUT_STDERR -DLOG_LEVEL=1U
+WIZNET_DEFINES = -D_WIZCHIP_=W5500
 
-STRICT_FLAGS  = $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(LOGGER_DEFINES)
-RELAXED_FLAGS = $(CXXFLAGS) $(EXTRA_FLAGS) $(LOGGER_DEFINES)
-LOOSE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic $(LOGGER_DEFINES)
+STRICT_FLAGS  = $(CXXFLAGS) $(EXTRA_FLAGS) $(EXTRA_EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+RELAXED_FLAGS = $(CXXFLAGS) $(EXTRA_FLAGS) $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+LOOSE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic $(LOGGER_DEFINES) $(WIZNET_DEFINES) 
+PERMISSIVE_FLAGS = $(CXXFLAGS) -Wall -Wextra -pedantic -fpermissive $(LOGGER_DEFINES) $(WIZNET_DEFINES)
 
 INCLUDE_PATHS = -I ../Inc \
 				-I $(HOME)/Data/github/can/libcanard/libcanard \
@@ -18,6 +20,7 @@ INCLUDE_PATHS = -I ../Inc \
 				-I /usr/include/doctest \
 				-I ../Src \
 				-I ../3rdParty/SGP4 \
+				-I ../3rdParty/Wiznet_W5500 \
 				-I ../OpenCyphal/include \
 				-I ../OpenCyphal/target \
 				-I 3rdParty
@@ -36,14 +39,13 @@ $(shell mkdir -p \
 )
 
 # Wildcard discovery
-SRC_FILES := $(wildcard ../Src/*.cpp ../3rdParty/SGP4/*.cpp 3rdParty/*.c)
+SRC_FILES := $(wildcard ../Src/*.cpp ../3rdParty/SGP4/*.cpp ../3rdParty/Wiznet_W5500/*.c ../3rdParty/Wiznet_W5500/W5500/*.c 3rdParty/*.c)
 MOCK_HAL_SRC_FILES := $(wildcard ../Src/mock_hal/*.c)
 TEST_FILES := $(wildcard Test*.cpp)
 
 # Object file mapping
 SRC_OBJECTS := $(patsubst ../Src/%.cpp,$(BIN_DIR)/src/%.o,$(filter ../Src/%,$(SRC_FILES)))
 SGP4_OBJECTS := $(patsubst ../3rdParty/SGP4/%.cpp,$(BIN_DIR)/sgp4/%.o,$(filter ../3rdParty/SGP4/%,$(SRC_FILES)))
-
 THIRDPARTY_OBJECTS := $(patsubst 3rdParty/%.c,$(BIN_DIR)/3rdParty/%.o,$(filter 3rdParty/%,$(SRC_FILES)))
 
 MOCK_HAL_OBJECTS := $(patsubst ../Src/mock_hal/%.c,$(BIN_DIR)/mock_hal/%.o,$(MOCK_HAL_SRC_FILES))
@@ -72,7 +74,7 @@ RELAXED_TESTS := 	TestDetumblerSystem \
 				 	TestNamedVector3f \
 				 	TestOrientationTracker \
 				 	TestPositionTracker9D \
-				 	TestTaskSGP4
+				 	TestTaskSGP4 
 
 # Some SRC files require relaxed flags (Eigen, etc.)
 RELAXED_SRC := 		coordinate_rotators.cpp \
@@ -132,7 +134,7 @@ EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/Registratio
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
 EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o src/TaskCheckMemory.o
 
-ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
+ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(WIZNET_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
 # Default target
 all: nunavut $(ALL_SRC_OBJECTS) $(BIN_DIR)/libmockhal.a $(EXECUTABLES)
@@ -145,6 +147,7 @@ nunavut:
 # Compile rules with directory prerequisites
 $(BIN_DIR)/src/%.o: | $(BIN_DIR)/src
 $(BIN_DIR)/sgp4/%.o: | $(BIN_DIR)/sgp4
+$(BIN_DIR)/Wiznet_W5500/%.o: | $(BIN_DIR)/Wiznet_W5500
 $(BIN_DIR)/3rdParty/%.o: | $(BIN_DIR)/3rdParty
 $(BIN_DIR)/mock_hal/%.o: | $(BIN_DIR)/mock_hal
 

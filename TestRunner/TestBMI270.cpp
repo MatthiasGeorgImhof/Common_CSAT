@@ -6,9 +6,11 @@
 #include "Transport.hpp"
 
 SPI_HandleTypeDef mock_spi;
-GPIO_TypeDef mock_gpio;
 
-using Config = SPI_Register_Config<mock_spi, GPIO_PIN_5, 128>;
+static constexpr uint32_t MOCK_PORT_BASE = static_cast<uint32_t>(0xDEADBEEF); // value irrelevant for mock 
+
+using CSPin = GpioPin<MOCK_PORT_BASE, GPIO_PIN_5>;
+using Config = SPI_Register_Config<mock_spi, CSPin, 128>;
 using Transport = SPIRegisterTransport<Config>;
 using IMUType = BMI270<Transport>;
 
@@ -25,7 +27,7 @@ TEST_CASE("BMI270 readChipID returns correct value")
     uint8_t chip_id[] {0xff, 0x24};
     inject_spi_rx_data(chip_id, sizeof(chip_id));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readChipID();
@@ -47,7 +49,7 @@ TEST_CASE("BMI270 readAccelerometer returns scaled values")
     };
     inject_spi_rx_data(acc_raw, sizeof(acc_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readAccelerometer();
@@ -75,7 +77,7 @@ TEST_CASE("BMI270 readGyroscope returns scaled values")
     };
     inject_spi_rx_data(gyro_raw, sizeof(gyro_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readGyroscope();
@@ -99,7 +101,7 @@ TEST_CASE("BMI270 readThermometer returns scaled temperature")
     uint8_t temp_raw[] {0xff, 0x00, 0x02}; // dummy, LSB = 0x00, MSB = 0x02
     inject_spi_rx_data(temp_raw, sizeof(temp_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readThermometer();
@@ -112,7 +114,7 @@ TEST_CASE("BMI270 readThermometer returns scaled temperature")
 
 TEST_CASE("BMI270 readThermometer handles edge cases correctly")
 {
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -181,7 +183,7 @@ TEST_CASE("BMI270 readStatus() returns correct status values") {
     };
     inject_spi_rx_data(status_raw, sizeof(status_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -205,7 +207,7 @@ TEST_CASE("BMI270 readRawAccelerometer() returns correct raw accelerometer value
     };
     inject_spi_rx_data(acc_raw, sizeof(acc_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readRawAccelerometer();
@@ -227,7 +229,7 @@ TEST_CASE("BMI270 readRawGyroscope() returns correct raw gyroscope values") {
     };
     inject_spi_rx_data(gyro_raw, sizeof(gyro_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     auto result = imu.readRawGyroscope();
@@ -244,7 +246,7 @@ TEST_CASE("BMI270 readRawThermometer() returns correct raw thermometer value") {
     uint8_t temp_raw[] = {0xff, 0x00, 0x02}; // dummy, LSB = 0x00, MSB = 0x02
     inject_spi_rx_data(temp_raw, sizeof(temp_raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
     uint16_t result = imu.readRawThermometer();
@@ -256,7 +258,7 @@ TEST_CASE("BMI270 writeRegister writes correct register and value")
 {
     clear_spi_tx_buffer();
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -274,7 +276,7 @@ TEST_CASE("BMI270 readRegister reads correct value after dummy byte")
     uint8_t raw[] = {0xFF, 0xAB};   // dummy + value
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -290,7 +292,7 @@ TEST_CASE("BMI270 readRegisters reads dummy + payload correctly")
     uint8_t raw[] = {0xFF, 0x11, 0x22, 0x33};
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -311,7 +313,7 @@ TEST_CASE("BMI270 writeRegisterWithCheck succeeds when readback matches")
     uint8_t raw[] = {0xFF, 0x77};   // dummy + readback
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -326,7 +328,7 @@ TEST_CASE("BMI270 writeRegisterWithCheck fails when readback mismatches")
     uint8_t raw[] = {0xFF, 0x00};   // dummy + wrong value
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -347,7 +349,7 @@ TEST_CASE("BMI270 writeRegisterWithRepeat retries until success")
     };
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -367,7 +369,7 @@ TEST_CASE("BMI270 writeRegisterWithRepeat fails after all retries")
     }
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -389,7 +391,7 @@ TEST_CASE("BMI270 configure succeeds when all register writes succeed")
     };
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -408,7 +410,7 @@ TEST_CASE("BMI270 configure fails when a register write fails")
     };
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -431,7 +433,7 @@ TEST_CASE("BMI270 initialize succeeds when chip ID matches and status OK")
     };
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
@@ -450,7 +452,7 @@ TEST_CASE("BMI270 initialize fails when chip ID never matches")
     }
     inject_spi_rx_data(raw, sizeof(raw));
 
-    Config config(&mock_gpio);
+    Config config;
     Transport transport(config);
     BMI270<Transport> imu(transport);
 
