@@ -16,8 +16,11 @@
 #include "mock_hal.h" // Include the mock HAL header
 #endif
 
-void *canardMemoryAllocate(CanardInstance * /*ins*/, size_t amount) { return static_cast<void *>(malloc(amount)); };
-void canardMemoryFree(CanardInstance * /*ins*/, void *pointer) { free(pointer); };
+void* canardMemoryAllocate(void* /*ins*/, size_t amount) { return static_cast<void *>(malloc(amount)); };
+void  canardMemoryFree(void* /*ins*/, size_t /*amount*/, void *pointer) { free(pointer); };
+
+struct CanardMemoryResource canard_memory = { nullptr, canardMemoryFree, canardMemoryAllocate};
+
 
 CanTxQueueDrainer::CanTxQueueDrainer(CanardAdapter* /*adapter*/, CAN_HandleTypeDef* /*hcan*/) {}
 
@@ -30,9 +33,10 @@ CanTxQueueDrainer tx_drainer{nullptr, nullptr};
 TEST_CASE("Canard Adapter")
 {
     CanardAdapter adapter;
-    adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+
+    adapter.ins = canardInit(canard_memory);
     adapter.ins.node_id = 11;
-    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> cyphal(&adapter);
 
     CyphalTransferMetadata metadata;
@@ -62,9 +66,9 @@ TEST_CASE("Canard Adapter")
     SUBCASE("cyphalTxForward")
     {
         CanardAdapter adapter2;
-        adapter2.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+        adapter2.ins = canardInit(canard_memory);
         adapter2.ins.node_id = 11;
-        adapter2.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+        adapter2.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
 
         Cyphal<CanardAdapter> cyphal2(&adapter2);
         const char payload[] = "hello";
@@ -103,9 +107,9 @@ TEST_CASE("Canard Adapter")
 TEST_CASE("Canard Send Receive")
 {
     CanardAdapter adapter;
-    adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    adapter.ins = canardInit(canard_memory);
     adapter.ins.node_id = 11;
-    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> cyphal(&adapter);
 
     CyphalTransferMetadata metadata;
@@ -136,33 +140,33 @@ TEST_CASE("Canard Send Receive")
 
     CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 123, 100, 2000000) == 1);
 
-    const CanardTxQueueItem *const const_ptr = canardTxPeek(&adapter.que);
-    CHECK(const_ptr != nullptr);
-    CanardTxQueueItem *ptr = canardTxPop(&adapter.que, const_ptr);
+    CanardTxQueueItem *peek_ptr = canardTxPeek(&adapter.que);
+    CHECK(peek_ptr != nullptr);
+    CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
     CHECK(ptr != nullptr);
 
     CyphalTransfer transfer;
 
-    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &transfer) == 1);
+    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 1);
     CHECK(strncmp(payload1, static_cast<const char *>(transfer.payload), 5) == 0);
 
-    const CanardTxQueueItem *const const_ptr2 = canardTxPeek(&adapter.que);
-    CHECK(const_ptr2 != nullptr);
-    ptr = canardTxPop(&adapter.que, const_ptr2);
+    CanardTxQueueItem *peek_ptr2 = canardTxPeek(&adapter.que);
+    CHECK(peek_ptr2 != nullptr);
+    ptr = canardTxPop(&adapter.que, peek_ptr2);
     CHECK(ptr != nullptr);
-    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &transfer) == 0);
+    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 0);
 
-    const CanardTxQueueItem *const const_ptr3 = canardTxPeek(&adapter.que);
-    CHECK(const_ptr3 != nullptr);
-    ptr = canardTxPop(&adapter.que, const_ptr3);
+    CanardTxQueueItem *const peek_ptr3 = canardTxPeek(&adapter.que);
+    CHECK(peek_ptr3 != nullptr);
+    ptr = canardTxPop(&adapter.que, peek_ptr3);
     CHECK(ptr != nullptr);
-    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &transfer) == 0);
+    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 0);
 
-    const CanardTxQueueItem *const const_ptr4 = canardTxPeek(&adapter.que);
-    CHECK(const_ptr4 != nullptr);
-    ptr = canardTxPop(&adapter.que, const_ptr4);
+    CanardTxQueueItem *peek_ptr4 = canardTxPeek(&adapter.que);
+    CHECK(peek_ptr4 != nullptr);
+    ptr = canardTxPop(&adapter.que, peek_ptr4);
     CHECK(ptr != nullptr);
-    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload_size, static_cast<const uint8_t *>(ptr->frame.payload), &transfer) == 1);
+    CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 1);
     CHECK(strncmp(payload2, static_cast<const char *>(transfer.payload), 18) == 0);
 }
 
@@ -173,9 +177,9 @@ TEST_CASE("Canard Send Receive Large")
     constexpr CyphalNodeID node_id = 11;
 
     CanardAdapter adapter;
-    adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    adapter.ins = canardInit(canard_memory);
     adapter.ins.node_id = node_id;
-    adapter.que = canardTxInit(64, CANARD_MTU_CAN_CLASSIC);
+    adapter.que = canardTxInit(64, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> cyphal(&adapter);
 
     CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, port_id, 512, 2000000) == 1);
@@ -197,17 +201,17 @@ TEST_CASE("Canard Send Receive Large")
     size_t payload_size = sizeof(payload);
     CHECK(cyphal.cyphalTxPush(0, &metadata, payload_size, payload) == 37);
 
-    for (const CanardTxQueueItem *ti = NULL; (ti = canardTxPeek(&adapter.que)) != NULL;)
+    for (CanardTxQueueItem *ti = NULL; (ti = canardTxPeek(&adapter.que)) != NULL;)
     {
         CAN_TxHeaderTypeDef header;
         header.ExtId = ti->frame.extended_can_id;
-        header.DLC = static_cast<uint8_t>(ti->frame.payload_size);
+        header.DLC = static_cast<uint8_t>(ti->frame.payload.size);
         header.RTR = CAN_RTR_DATA;
         header.IDE = CAN_ID_EXT;
         uint32_t mailbox;
-        CHECK(HAL_CAN_AddTxMessage(&hcan, &header, static_cast<uint8_t *>(const_cast<void *>(ti->frame.payload)), &mailbox) == HAL_OK);
-        adapter.ins.memory_free(&adapter.ins, canardTxPop(&adapter.que, ti));
-    }
+        CHECK(HAL_CAN_AddTxMessage(&hcan, &header, static_cast<uint8_t *>(const_cast<void *>(ti->frame.payload.data)), &mailbox) == HAL_OK);
+        canardTxPop(&adapter.que, ti);
+        canardTxFree(&adapter.que, &adapter.ins, ti);    }
 
     move_can_tx_to_rx();
 
@@ -232,7 +236,7 @@ TEST_CASE("Canard Send Receive Large")
     CHECK(transfer.metadata.priority == CyphalPriorityNominal);
     CHECK(transfer.payload != nullptr);
     CHECK(memcmp(transfer.payload, payload, sizeof(payload)) == 0);
-    adapter.ins.memory_free(&adapter.ins, transfer.payload);
+    adapter.ins.memory.deallocate(&adapter.ins, transfer.payload_size, transfer.payload);
 }
 
 TEST_CASE("Canard Send Forward Receive")
@@ -241,9 +245,9 @@ TEST_CASE("Canard Send Forward Receive")
     constexpr CyphalNodeID forward_id = 22;
 
     CanardAdapter adapter;
-    adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    adapter.ins = canardInit(canard_memory);
     adapter.ins.node_id = my_id;
-    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> cyphal(&adapter);
     CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 123, 100, 2000000) == 1);
 
@@ -262,9 +266,9 @@ TEST_CASE("Canard Send Forward Receive")
     size_t payload_size1 = sizeof(payload1);
     auto res = cyphal.cyphalTxForward(0, &metadata, payload_size1, payload1, 0);
     CHECK(res == 1);
-    const CanardTxQueueItem *const const_ptr1 = canardTxPeek(&adapter.que);
-    CanardTxQueueItem *ptr1 = canardTxPop(&adapter.que, const_ptr1);
-    CHECK(cyphal.cyphalRxReceive(ptr1->frame.extended_can_id, &ptr1->frame.payload_size, static_cast<const uint8_t *>(ptr1->frame.payload), &transfer1) == 1);
+    CanardTxQueueItem *peek_ptr1 = canardTxPeek(&adapter.que);
+    CanardTxQueueItem *ptr1 = canardTxPop(&adapter.que, peek_ptr1);
+    CHECK(cyphal.cyphalRxReceive(ptr1->frame.extended_can_id, &ptr1->frame.payload.size, static_cast<const uint8_t *>(ptr1->frame.payload.data), &transfer1) == 1);
     CHECK(strncmp(payload1, static_cast<const char *>(transfer1.payload), 5) == 0);
     CHECK(transfer1.metadata.remote_node_id == forward_id);
 
@@ -279,9 +283,9 @@ TEST_CASE("Canard Send Forward Receive")
     const char payload2[] = "ehllo";
     size_t payload_size2 = sizeof(payload2);
     CHECK(cyphal.cyphalTxPush(0, &metadata, payload_size2, payload2) == 1);
-    const CanardTxQueueItem *const const_ptr2 = canardTxPeek(&adapter.que);
-    CanardTxQueueItem *ptr2 = canardTxPop(&adapter.que, const_ptr2);
-    CHECK(cyphal.cyphalRxReceive(ptr2->frame.extended_can_id, &ptr2->frame.payload_size, static_cast<const uint8_t *>(ptr2->frame.payload), &transfer2) == 1);
+    CanardTxQueueItem *peek_ptr2 = canardTxPeek(&adapter.que);
+    CanardTxQueueItem *ptr2 = canardTxPop(&adapter.que, peek_ptr2);
+    CHECK(cyphal.cyphalRxReceive(ptr2->frame.extended_can_id, &ptr2->frame.payload.size, static_cast<const uint8_t *>(ptr2->frame.payload.data), &transfer2) == 1);
     CHECK(strncmp(payload2, static_cast<const char *>(transfer2.payload), 5) == 0);
     CHECK(transfer2.metadata.remote_node_id == my_id);
 }
@@ -955,9 +959,9 @@ TEST_CASE("All Combined Unroll")
     Cyphal<SerardAdapter> serard_cyphal(&serard_adapter);
 
     CanardAdapter canard_adapter;
-    canard_adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    canard_adapter.ins = canardInit(canard_memory);
     canard_adapter.ins.node_id = 11;
-    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
 
     auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<UdpardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, udpard_cyphal, serard_cyphal, canard_cyphal});
@@ -998,9 +1002,9 @@ TEST_CASE("All Combined Loop")
     Cyphal<SerardAdapter> serard_cyphal(&serard_adapter);
 
     CanardAdapter canard_adapter;
-    canard_adapter.ins = canardInit(canardMemoryAllocate, canardMemoryFree);
+    canard_adapter.ins = canardInit(canard_memory);
     canard_adapter.ins.node_id = 11;
-    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC);
+    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
 
     auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<UdpardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, udpard_cyphal, serard_cyphal, canard_cyphal});

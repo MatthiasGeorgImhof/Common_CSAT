@@ -15,7 +15,7 @@ extern CanTxQueueDrainer tx_drainer;
 
 static_assert(CYPHAL_NODE_ID_UNSET == CANARD_NODE_ID_UNSET, "unset lengths differ");
 static_assert(sizeof(CyphalTransferMetadata) == sizeof(CanardTransferMetadata), "metadata sizes differ");
-static_assert(sizeof(CyphalTransfer) == sizeof(CanardRxTransfer), "rxtransfer sizes differ");
+// static_assert(sizeof(CyphalTransfer) == sizeof(CanardRxTransfer), "rxtransfer sizes differ");
 
 inline void cyphalMetadataToCanard(const CyphalTransferMetadata *cyphal, CanardTransferMetadata *canard)
 {
@@ -24,7 +24,10 @@ inline void cyphalMetadataToCanard(const CyphalTransferMetadata *cyphal, CanardT
 
 inline void cyphalTransferToCanard(const CyphalTransfer *cyphal, CanardRxTransfer *canard)
 {
-    memcpy(canard, cyphal, sizeof(CyphalTransfer));
+    cyphalMetadataToCanard(&cyphal->metadata, &canard->metadata);
+    canard->timestamp_usec = cyphal->timestamp_usec;
+    canard->payload.size = cyphal->payload_size;
+    canard->payload.data = cyphal->payload;
 }
 
 inline void canardMetadataToCyphal(const CanardTransferMetadata *canard, CyphalTransferMetadata *cyphal)
@@ -34,7 +37,10 @@ inline void canardMetadataToCyphal(const CanardTransferMetadata *canard, CyphalT
 
 inline void canardTransferToCyphal(const CanardRxTransfer *canard, CyphalTransfer *cyphal)
 {
-    memcpy(cyphal, canard, sizeof(CanardRxTransfer));
+    canardMetadataToCyphal(&canard->metadata, &cyphal->metadata);
+    cyphal->timestamp_usec = canard->timestamp_usec;
+    cyphal->payload_size = canard->payload.size;
+    cyphal->payload = canard->payload.data;
 }
 
 struct CanardAdapter
@@ -62,8 +68,8 @@ public:
         log(LOG_LEVEL_INFO, "canardTxPush at %08u: %3d (%3d -> %3d) (%4d %3d)\r\n", HAL_GetTick(),
         		metadata->remote_node_id, metadata->source_node_id, metadata->destination_node_id, metadata->port_id, metadata->transfer_id);
 
-
-    	auto res = canardTxPush(&adapter_->que, &adapter_->ins, tx_deadline_usec, reinterpret_cast<const CanardTransferMetadata *>(metadata), payload_size, payload);
+        CanardPayload canard_payload = {payload_size, payload};
+    	auto res = canardTxPush(&adapter_->que, &adapter_->ins, tx_deadline_usec, reinterpret_cast<const CanardTransferMetadata *>(metadata), canard_payload, 0, nullptr);
         tx_drainer.irq_safe_drain();
         return res;
     }
@@ -120,7 +126,9 @@ public:
     int32_t cyphalRxReceive(uint32_t extended_can_id, const size_t *frame_size, const uint8_t *const frame, CyphalTransfer *out_transfer)
     {
         CanardFrame canard_frame = {extended_can_id, *frame_size, frame};
-        auto result = canardRxAccept(&adapter_->ins, 0, &canard_frame, 0, reinterpret_cast<CanardRxTransfer *>(out_transfer), nullptr);
+        CanardRxTransfer canard_transfer;
+        auto result = canardRxAccept(&adapter_->ins, 0, &canard_frame, 0, &canard_transfer, nullptr);
+        canardTransferToCyphal(&canard_transfer, out_transfer);
         if (result==1)
         	log(LOG_LEVEL_DEBUG, "canardRxReceive at %08u: %3d -> %3d (%4d %3d)\r\n", HAL_GetTick(),
         		out_transfer->metadata.source_node_id, out_transfer->metadata.destination_node_id, out_transfer->metadata.port_id, out_transfer->metadata.transfer_id);

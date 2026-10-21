@@ -36,7 +36,7 @@ template <typename Heap>
 struct ManagedCanardRxTransfer : public CanardRxTransfer {
     ManagedCanardRxTransfer() = default;
     ~ManagedCanardRxTransfer() {
-        if (payload) Heap::heapFree(nullptr, const_cast<void*>(payload));
+        if (payload.data) Heap::heapFree(nullptr, const_cast<void*>(payload.data));
     }
 };
 
@@ -81,8 +81,8 @@ TEST_CASE("alloc_shared_custom<ManagedCanardRxTransfer> cleans payload")
         auto p = alloc_shared_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
-        p->payload = o1heapAllocate(heap, 100);
-        REQUIRE(p->payload != nullptr);
+        p->payload.data = o1heapAllocate(heap, 100);
+        REQUIRE(p->payload.data != nullptr);
     }
 
     CHECK(o1heapGetDiagnostics(heap).allocated == allocated0);
@@ -102,8 +102,8 @@ TEST_CASE("alloc_shared_custom<CanardRxTransfer> cleans payload")
         auto p = alloc_shared_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
-        p->payload = o1heapAllocate(heap, 100);
-        REQUIRE(p->payload != nullptr);
+        p->payload.data = o1heapAllocate(heap, 100);
+        REQUIRE(p->payload.data != nullptr);
 
         CHECK(o1heapGetDiagnostics(heap).allocated > allocated0);
     }
@@ -178,8 +178,8 @@ TEST_CASE("alloc_unique_custom<ManagedCanardRxTransfer> cleans payload")
         auto p = alloc_unique_custom<ManagedT>(alloc);
         REQUIRE(p != nullptr);
 
-        p->payload = o1heapAllocate(heap, 100);
-        REQUIRE(p->payload != nullptr);
+        p->payload.data = o1heapAllocate(heap, 100);
+        REQUIRE(p->payload.data != nullptr);
 
         CHECK(o1heapGetDiagnostics(heap).allocated > allocated0);
     } // ManagedT destructor is called here by unique_ptr deleter
