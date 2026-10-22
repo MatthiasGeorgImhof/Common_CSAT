@@ -23,11 +23,10 @@ INCLUDE_PATHS = -I ../Inc \
 				-I ../Src \
 				-I ../3rdParty/SGP4 \
 				-I ../3rdParty/Wiznet_W5500 \
-				-I ../3rdParty/libcanard/libcanard \
-				-I ../3rdParty/libcanard/lib/cavl2 \
-				-I ../3rdParty/libudpard/libudpard \
-				-I ../3rdParty/libserard_ck/libserard \
-				-I ../3rdParty/o1heap/o1heap \
+				-I ../3rdParty/libcanard \
+				-I ../3rdParty/libudpard \
+				-I ../3rdParty/libserard_ck \
+				-I ../3rdParty/o1heap \
 				-I ../OpenCyphal/include \
 				-I ../OpenCyphal/target \
 				-I 3rdParty
@@ -47,7 +46,7 @@ $(shell mkdir -p \
 )
 
 # Wildcard discovery
-CYPHAL_SRC_FILES := $(wildcard ../3rdParty/libcanard/libcanard/*.c ../3rdParty/libudpard/libudpard/*.c ../3rdParty/libserard_ck/libserard/*.c ../3rdParty/o1heap/o1heap/*.c)
+CYPHAL_SRC_FILES := $(wildcard ../3rdParty/libcanard/*.c ../3rdParty/libudpard/*.c ../3rdParty/libserard_ck/*.c ../3rdParty/o1heap/*.c)
 
 SRC_FILES := $(wildcard ../Src/*.cpp ../3rdParty/SGP4/*.cpp ../3rdParty/Wiznet_W5500/*.c ../3rdParty/Wiznet_W5500/W5500/*.c 3rdParty/*.c)
 MOCK_HAL_SRC_FILES := $(wildcard ../Src/mock_hal/*.c)
@@ -56,10 +55,10 @@ TEST_FILES := $(wildcard Test*.cpp)
 # Object file mapping
 SRC_OBJECTS := $(patsubst ../Src/%.cpp,$(BIN_DIR)/src/%.o,$(filter ../Src/%,$(SRC_FILES)))
 SGP4_OBJECTS := $(patsubst ../3rdParty/SGP4/%.cpp,$(BIN_DIR)/sgp4/%.o,$(filter ../3rdParty/SGP4/%,$(SRC_FILES)))
-CANARD_OBJECTS := $(patsubst ../3rdParty/libcanard/libcanard/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libcanard/libcanard/%,$(CYPHAL_SRC_FILES)))
-UDPARD_OBJECTS := $(patsubst ../3rdParty/libudpard/libudpard/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libudpard/libudpard/%,$(CYPHAL_SRC_FILES)))
-SERARD_OBJECTS := $(patsubst ../3rdParty/libserard_ck/libserard/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libserard_ck/libserard/%,$(CYPHAL_SRC_FILES)))
-O1HEAP_OBJECTS := $(patsubst ../3rdParty/o1heap/o1heap/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/o1heap/o1heap/%,$(CYPHAL_SRC_FILES)))
+CANARD_OBJECTS := $(patsubst ../3rdParty/libcanard/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libcanard/%,$(CYPHAL_SRC_FILES)))
+UDPARD_OBJECTS := $(patsubst ../3rdParty/libudpard/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libudpard/%,$(CYPHAL_SRC_FILES)))
+SERARD_OBJECTS := $(patsubst ../3rdParty/libserard_ck/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/libserard_ck/%,$(CYPHAL_SRC_FILES)))
+O1HEAP_OBJECTS := $(patsubst ../3rdParty/o1heap/%.c,$(BIN_DIR)/cyphal/%.o,$(filter ../3rdParty/o1heap/%,$(CYPHAL_SRC_FILES)))
 THIRDPARTY_OBJECTS := $(patsubst 3rdParty/%.c,$(BIN_DIR)/3rdParty/%.o,$(filter 3rdParty/%,$(SRC_FILES)))
 MOCK_HAL_OBJECTS := $(patsubst ../Src/mock_hal/%.c,$(BIN_DIR)/mock_hal/%.o,$(MOCK_HAL_SRC_FILES))
 
@@ -183,19 +182,19 @@ $(BIN_DIR)/sgp4/%.o: ../3rdParty/SGP4/%.cpp
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CXX) -c $< $$FLAGS $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/cyphal/%.o: ../3rdParty/libcanard/libcanard/%.c
+$(BIN_DIR)/cyphal/%.o: ../3rdParty/libcanard/%.c
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CC) -c $< $(CFLAGS) $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/cyphal/%.o: ../3rdParty/libudpard/libudpard/%.c
+$(BIN_DIR)/cyphal/%.o: ../3rdParty/libudpard/%.c
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CC) -c $< $(CFLAGS) $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/cyphal/%.o: ../3rdParty/libserard_ck/libserard/%.c
+$(BIN_DIR)/cyphal/%.o: ../3rdParty/libserard_ck/%.c
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CC) -c $< $(CFLAGS) $(INCLUDE_PATHS) -o $@
 
-$(BIN_DIR)/cyphal/%.o: ../3rdParty/o1heap/o1heap/%.c
+$(BIN_DIR)/cyphal/%.o: ../3rdParty/o1heap/%.c
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CC) -c $< $(CFLAGS) $(INCLUDE_PATHS) -o $@
 
