@@ -7,9 +7,10 @@ template <size_t N>
 struct __attribute__((packed)) HeaderFrame
 {
     uint32_t extended_can_id;
+    uint16_t size;
     uint8_t payload[N];
 };
-static_assert(sizeof(HeaderFrame<8>) == 12, "HeaderFrame<8> should be 12 bytes");
+static_assert(sizeof(HeaderFrame<8>) == 14, "HeaderFrame<8> should be 14 bytes");
 
 
 template <size_t N>
@@ -23,7 +24,7 @@ struct __attribute__((packed)) COBSHeaderFrame
     HeaderFrame<N> header_frame;
     uint8_t end_of_frame = 0x00;
 };
-static_assert(sizeof(COBSHeaderFrame<8>) == 15, "COBSHeaderFrame<8> should be 15 bytes");
+static_assert(sizeof(COBSHeaderFrame<8>) == 17, "COBSHeaderFrame<8> should be 17 bytes");
 
 
 template <size_t N>

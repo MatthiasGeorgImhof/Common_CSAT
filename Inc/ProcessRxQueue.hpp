@@ -106,26 +106,6 @@ public:
     }
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
 
-    template <typename Buffer, typename... Adapters>
-    void ProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, Buffer &rx_buffer)
-    {
-        size_t num_frames = rx_buffer.size();
-        for (uint32_t n = 0; n < num_frames; ++n)
-        {
-            auto frame = rx_buffer.pop();
-            
-            auto ext_id = frame.ExtId;
-            auto size = frame.size;
-            auto data = frame.data;
-            CyphalTransfer transfer;
-            int32_t result = cyphal->cyphalRxReceive(ext_id, &size, data, &transfer);
-            if (result == 1)
-            {
-                processTransfer(transfer, service_manager, adapters);
-            }
-        }
-    }
-
     template <size_t N, typename... Adapters>
     void ProcessRxQueue(Cyphal<SerardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, CircularBuffer<SerialFrame, N> &buffer)
     {
@@ -155,6 +135,26 @@ public:
                 if (frame_size == 0)
                     break;
                 shift = frame.size - frame_size;
+            }
+        }
+    }
+
+    template <typename Buffer, typename... Adapters>
+    void ProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, Buffer &rx_buffer)
+    {
+        size_t num_frames = rx_buffer.size();
+        for (uint32_t n = 0; n < num_frames; ++n)
+        {
+            auto frame = rx_buffer.pop();
+            
+            uint32_t ext_id = frame.extended_can_id;
+            size_t size = static_cast<uint16_t>(frame.size);
+            uint8_t* data = frame.payload;
+            CyphalTransfer transfer;
+            int32_t result = cyphal->cyphalRxReceive(ext_id, &size, data, &transfer);
+            if (result == 1)
+            {
+                processTransfer(transfer, service_manager, adapters);
             }
         }
     }

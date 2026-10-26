@@ -4,7 +4,6 @@
 #include "HeapAllocation.hpp"
 #include "cyphal.hpp"
 #include "canard.h"
-#include "serard.h"
 
 // ------------------------------------------------------------
 // Local heap adapter for SafeAllocator

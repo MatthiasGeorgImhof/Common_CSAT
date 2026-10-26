@@ -41,7 +41,7 @@ void BufTxQueueDrainer<Buffer>::drain()
     while ((ti = canardTxPeek(&adapter_->que)) != nullptr)
     {
         canardTxPop(&adapter_->que, ti);
-        [[maybe_unused]] auto frame_ = buffer_.begin_write();
+        auto& frame_ = buffer_.begin_write();
         frame_.ExtId = ti->frame.extended_can_id;
         frame_.size = ti->frame.payload.size;
         memcpy(frame_.data, ti->frame.payload.data, frame_.size);
@@ -147,7 +147,7 @@ void SerialTxQueueDrainer<MTU>::drain()
         canardTxPop(&adapter_->que, ti);
         COBSFramer<MTU> framer;
         auto data_frame = framer.serialize(ti->frame);
-        HAL_UART_Transmit(huart_, data_frame, sizeof(data_frame), 1000);
+        HAL_UART_Transmit(huart_, reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), 1000);
 
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }

@@ -110,14 +110,19 @@ public:
 		safeDeallocate(pointer);
 	}
 
-	static void *canardMemoryAllocate(CanardInstance *const /*canard*/, const size_t size)
+	// static void *canardMemoryAllocate(CanardInstance *const /*canard*/, const size_t size)
+	// {
+	// 	return safeAllocate(size);
+	// }
+
+	// static void canardMemoryDeallocate(CanardInstance *const /*canard*/, void *const pointer)
+	// {
+	// 	safeDeallocate(pointer);
+	// }
+
+	static void *canardMemoryAllocate(void *const /*user_reference*/, const size_t size)
 	{
 		return safeAllocate(size);
-	}
-
-	static void canardMemoryDeallocate(CanardInstance *const /*canard*/, void *const pointer)
-	{
-		safeDeallocate(pointer);
 	}
 
 	static void canardMemoryDeallocate(void *const /*user_reference*/, const size_t /*size*/, void *const pointer)

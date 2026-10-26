@@ -4,8 +4,6 @@
 #include "cyphal.hpp"
 #include "cyphal_mtu.hpp"
 #include "canard_adapter.hpp"
-#include "serard_adapter.hpp"
-#include "loopard_adapter.hpp"
 #include <iostream>
 #include <cstdint>
 #include <vector>

@@ -9,10 +9,10 @@
 #include "string.h"
 
 #include "o1heap.h"
-#include "serard.h"
+#include "canard.h"
 
 #include "cyphal.hpp"
-#include "serard_adapter.hpp"
+#include "canard_adapter.hpp"
 #include "loopard_adapter.hpp"
 
 #ifndef NUNAVUT_ASSERT
@@ -52,8 +52,8 @@
 #include "nunavut_assert.h"
 #include "uavcan/node/Heartbeat_1_0.h"
 
-SerardAdapter serard_adapter;
-SerardAdapter radio_adapter;
+CanardAdapter canard_adapter;
+CanardAdapter radio_adapter;
 LoopardAdapter loopard_adapter;
 
 #ifndef CYPHAL_NODE_ID
@@ -62,13 +62,6 @@ LoopardAdapter loopard_adapter;
 
 constexpr CyphalNodeID cyphal_node_id = CYPHAL_NODE_ID;
 
-// using LocalHeap = HeapAllocation<65536>;
-
-constexpr uint32_t SERIAL_TIMEOUT = 1000;
-constexpr size_t SERIAL_BUFFER_SIZE = 16;
-using SerialCircularBuffer = CircularBuffer<SerialFrame, SERIAL_BUFFER_SIZE>;
-SerialCircularBuffer serial_buffer;
-
 template <typename T, typename... Args>
 static void register_task_with_heap(RegistrationManager &rm, Args &&...args)
 {
@@ -76,31 +69,20 @@ static void register_task_with_heap(RegistrationManager &rm, Args &&...args)
     rm.add(alloc_unique_custom<T, LocalHeap>(alloc, std::forward<Args>(args)...));
 }
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-    bool dummy_emit(void * /*user_ref*/, uint8_t /*data_size*/, const uint8_t * /*data*/)
-    {
-        return true;
-    }
-#ifdef __cplusplus
-}
-#endif
-
 TEST_CASE("Downstream Leak")
 {
     LocalHeap::initialize();
+    struct CanardMemoryResource canard_memory = { nullptr, LocalHeap::canardMemoryDeallocate, LocalHeap::canardMemoryAllocate};
 
-    using SerardCyphal = Cyphal<SerardAdapter>;
-    struct SerardMemoryResource serard_memory_resource = {&serard_adapter.ins, LocalHeap::serardMemoryAllocate, LocalHeap::serardMemoryDeallocate};
-    serard_adapter.ins = serardInit(serard_memory_resource, serard_memory_resource);
-    serard_adapter.reass = serardReassemblerInit();
-    serard_adapter.emitter = dummy_emit;
-    SerardCyphal serard_cyphal(&serard_adapter);
-    serard_cyphal.setNodeID(cyphal_node_id);
+    canard_adapter.ins = canardInit(canard_memory);
+    canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
+    Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
+    canard_cyphal.setNodeID(cyphal_node_id);
 
-    std::tuple<Cyphal<SerardAdapter>> serard_adapters = {serard_cyphal};
+
+    using CanardCyphal = Cyphal<CanardAdapter>;
+
+    std::tuple<Cyphal<CanardAdapter>> canard_adapters = {canard_cyphal};
     std::tuple<> empty_adapters = {};
 
     RegistrationManager registration_manager;
@@ -109,212 +91,57 @@ TEST_CASE("Downstream Leak")
     LoopManager<LocalHeap> loop_manager;
     O1HeapInstance *o1heap = LocalHeap::getO1Heap();
 
-    using TPHeart = TaskProcessHeartBeat<SerardCyphal>;
-    register_task_with_heap<TPHeart>(registration_manager, 500U, 100U, serard_adapters);
+    using TPHeart = TaskProcessHeartBeat<CanardCyphal>;
+    register_task_with_heap<TPHeart>(registration_manager, 500U, 100U, canard_adapters);
 
     using TCheckMem = TaskCheckMemory;
     register_task_with_heap<TCheckMem>(registration_manager, o1heap, 500U, 100U);
 
-    subscription_manager.subscribeAll(registration_manager, serard_adapters);
+    subscription_manager.subscribeAll(registration_manager, canard_adapters);
 
     ServiceManager service_manager(registration_manager.getHandlers());
     service_manager.initializeServices(0);
     HAL_SetTick(1000);
 
-    // SUBCASE("Empty Serial Buffer")
-    // {
-    //     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
-    //     loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, empty_adapters, serial_buffer);
-    //     service_manager.handleServices();
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-
-    //     CHECK(diagnostic_before.allocated == diagnostic_after.allocated);
-    // }
-
-    // SUBCASE("ProcessTransfer with Empty Payload")
-    // {
-    //     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
-
-    //     CyphalTransfer transfer;
-    //     transfer.metadata.port_id = 1234;
-    //     transfer.payload_size = 0;
-    //     transfer.payload = nullptr;
-    //     loop_manager.processTransfer(transfer, &service_manager, empty_adapters);
-    //     service_manager.handleServices();
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-
-    //     CHECK(diagnostic_before.allocated == diagnostic_after.allocated);
-    // }
-
-    // SUBCASE("ProcessTransfer with Non-Empty Payload")
-    // {
-    //     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
-
-    //     constexpr size_t payload_size = 10;
-    //     uint8_t *payload = static_cast<uint8_t *>(LocalHeap::heapAllocate(nullptr, payload_size));
-    //     O1HeapDiagnostics diagnostic_payload = o1heapGetDiagnostics(o1heap);
-    //     CHECK(diagnostic_before.allocated != diagnostic_payload.allocated);
-
-    //     for (size_t i = 0; i < payload_size; ++i)
-    //     {
-    //         payload[i] = static_cast<uint8_t>(i);
-    //     }
-    //     CyphalTransfer transfer;
-    //     transfer.metadata.port_id = 1234;
-    //     transfer.payload_size = payload_size;
-    //     transfer.payload = payload;
-
-    //     loop_manager.processTransfer(transfer, &service_manager, empty_adapters);
-    //     O1HeapDiagnostics diagnostic_shared = o1heapGetDiagnostics(o1heap);
-    //     CHECK(diagnostic_payload.allocated != diagnostic_shared.allocated);
-
-    //     service_manager.handleServices();
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-    //     CHECK(diagnostic_before.allocated == diagnostic_after.allocated);
-    // }
-
-    // SUBCASE("ProcessTransfer with Heartbeat Payload")
-    // {
-    //     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
-    //     {
-    //         uavcan_node_Heartbeat_1_0 data = {
-    //             .uptime = 1234,
-    //             .health = {uavcan_node_Health_1_0_NOMINAL},
-    //             .mode = {uavcan_node_Mode_1_0_OPERATIONAL},
-    //             .vendor_specific_status_code = 0};
-    //         // @formatter:on
-
-    //         size_t payload_size = uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
-    //         uint8_t *payload = static_cast<uint8_t *>(LocalHeap::heapAllocate(nullptr, payload_size));
-    //         O1HeapDiagnostics diagnostic_payload = o1heapGetDiagnostics(o1heap);
-    //         CHECK(diagnostic_before.allocated != diagnostic_payload.allocated);
-
-    //         CHECK(uavcan_node_Heartbeat_1_0_serialize_(&data, payload, &payload_size) == NUNAVUT_SUCCESS);
-
-    //         CyphalTransfer transfer;
-    //         transfer.metadata.port_id = uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_;
-    //         transfer.payload_size = payload_size;
-    //         transfer.payload = payload;
-
-    //         loop_manager.processTransfer(transfer, &service_manager, empty_adapters);
-    //         O1HeapDiagnostics diagnostic_shared = o1heapGetDiagnostics(o1heap);
-    //         CHECK(diagnostic_payload.allocated != diagnostic_shared.allocated);
-
-    //         service_manager.handleServices();
-    //     }
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-    //     CHECK(diagnostic_before.allocated == diagnostic_after.allocated);
-    // }
-
-    // SUBCASE("ProcessTransfer with Heartbeat Payload - Stability Test")
-    // {
-    //     constexpr size_t payload_size = uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
-
-    //     // 1. Warm up the system (let subscribers allocate their "last value" buffers)
-    //     {
-    //         uint8_t *payload = static_cast<uint8_t *>(LocalHeap::heapAllocate(nullptr, payload_size));
-    //         CyphalTransfer transfer;
-    //         transfer.metadata.port_id = uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_;
-    //         transfer.payload_size = payload_size;
-    //         transfer.payload = payload;
-    //         loop_manager.processTransfer(transfer, &service_manager, empty_adapters);
-    //         service_manager.handleServices();
-    //     }
-
-    //     // 2. Capture baseline after the system has "learned" the heartbeat
-    //     O1HeapDiagnostics diagnostic_baseline = o1heapGetDiagnostics(o1heap);
-
-    //     HAL_SetTick(2000);
-    //     // 3. Send a second heartbeat
-    //     {
-    //         uint8_t *payload = static_cast<uint8_t *>(LocalHeap::heapAllocate(nullptr, payload_size));
-    //         CyphalTransfer transfer;
-    //         transfer.metadata.port_id = uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_;
-    //         transfer.payload_size = payload_size;
-    //         transfer.payload = payload;
-    //         loop_manager.processTransfer(transfer, &service_manager, empty_adapters);
-    //         service_manager.handleServices();
-    //     }
-
-    //     // 4. Check if memory returned to the baseline
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-
-    //     // This should pass because the shared_ptr in the Task was swapped/updated
-    //     CHECK(diagnostic_baseline.allocated == diagnostic_after.allocated);
-    // }
-
-    // SUBCASE("ProcessRxQueue with Heartbeat Payloads")
-    // {
-    //     CircularBuffer<SerialFrame, 4> buffer;
-
-    //     static uint8_t hb_frame[] =
-    //         {
-    //             0x00, 0x04, 0x01, 0x04, 0x79, 0x06, 0xff, 0xff, 0x55, 0x1d, 0x17, 0x01,
-    //             0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x80, 0x01, 0x04,
-    //             0x0e, 0x10, 0x17, 0x01, 0x01, 0x01, 0x01, 0x01, 0x05, 0x42, 0x20, 0x80,
-    //             0x3a, 0x00};
-
-    //     O1HeapDiagnostics diagnostic_before = o1heapGetDiagnostics(o1heap);
-    //     {
-    //         SerialFrame frame;
-    //         frame.size = sizeof(hb_frame);
-    //         memcpy(frame.data, hb_frame, sizeof(hb_frame));
-    //         buffer.push(frame);
-
-    //         loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, empty_adapters, buffer);
-
-    //         O1HeapDiagnostics diagnostic_mid = o1heapGetDiagnostics(o1heap);
-    //         CHECK(diagnostic_mid.allocated > diagnostic_before.allocated);
-
-    //         service_manager.handleServices();
-    //     }
-    //     O1HeapDiagnostics diagnostic_after = o1heapGetDiagnostics(o1heap);
-    //     CHECK(diagnostic_after.allocated != diagnostic_before.allocated);
-
-    //     for (uint8_t i = 1; i < 10; ++i)
-    //     {
-    //         HAL_SetTick(i * 1000);
-    //         SerialFrame frame;
-    //         frame.size = sizeof(hb_frame);
-    //         memcpy(frame.data, hb_frame, sizeof(hb_frame));
-    //         buffer.push(frame);
-
-    //         loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, empty_adapters, buffer);
-
-    //         O1HeapDiagnostics diagnostic_mid = o1heapGetDiagnostics(o1heap);
-    //         CHECK(diagnostic_mid.allocated > diagnostic_before.allocated);
-
-    //         service_manager.handleServices();
-    //         O1HeapDiagnostics diagnostic = o1heapGetDiagnostics(o1heap);
-    //         CHECK(diagnostic.allocated != diagnostic_after.allocated);
-    //     }
-    // }
-
     SUBCASE("ProcessRxQueue with Heartbeat Payloads - Stability Test 1")
     {
+        constexpr uint8_t message[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xA1, 0xE0};
+        constexpr uint32_t EXT_CAN_ID = 0x107D552A;
+
+        size_t stabilized = 0;
+
         for (uint32_t i = 0; i < 10; i++)
         {
+            std::cout << "START Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
+
+            HAL_SetTick(i * 1000);
+
+            CircularBuffer<HeaderFrame<8>, 4> rx_buffer;
+            HeaderFrame<8>& frame = rx_buffer.begin_write();
+            frame.extended_can_id = EXT_CAN_ID;
+            frame.size = sizeof(message);
+            memcpy(frame.payload, message, sizeof(message));
+            frame.payload[7] += static_cast<uint8_t>(i);
+            rx_buffer.commit_write();
+
+            CHECK(rx_buffer.size() == 1);
+
+            loop_manager.ProcessRxQueue(&canard_cyphal, &service_manager, empty_adapters, rx_buffer);
+            service_manager.handleServices();
+            CHECK(rx_buffer.size() == 0);
+
+            size_t allocated = o1heapGetDiagnostics(o1heap).allocated;
+            if (i == 1)
             {
-                std::cerr << "START Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
-
-                HAL_SetTick(i * 1000);
-                static uint8_t hb_frame[] =
-                    {
-                        0x00, 0x04, 0x01, 0x04, 0x79, 0x06, 0xff, 0xff, 0x55, 0x1d, 0x17, 0x01,
-                        0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x80, 0x01, 0x04,
-                        0x0e, 0x10, 0x17, 0x01, 0x01, 0x01, 0x01, 0x01, 0x05, 0x42, 0x20, 0x80,
-                        0x3a, 0x00};
-
-                SerialFrame frame;
-                frame.size = sizeof(hb_frame);
-                memcpy(frame.data, hb_frame, sizeof(hb_frame));
-                serial_buffer.push(frame);
-
-                loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, empty_adapters, serial_buffer);
-                service_manager.handleServices();
-
-                std::cerr << "END Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
+                stabilized = allocated;
             }
+
+            if (i > 1)
+            {
+                CHECK(allocated == stabilized);
+            }
+
+            std::cout << "END   Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
         }
     }
 

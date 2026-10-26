@@ -6,8 +6,8 @@
 
 TEST_CASE("HeaderFrame layout")
 {
-    CHECK(sizeof(HeaderFrame<8>) == 12);
-    CHECK(sizeof(COBSHeaderFrame<8>) == 15);
+    CHECK(sizeof(HeaderFrame<8>) == 14);
+    CHECK(sizeof(COBSHeaderFrame<8>) == 17);
 }
 
 TEST_CASE("PlainFramer serialize")
