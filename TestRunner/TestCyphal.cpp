@@ -4,7 +4,6 @@
 #include "cyphal.hpp"
 #include "canard_adapter.hpp"
 #include "serard_adapter.hpp"
-#include "udpard_adapter.hpp"
 #include "loopard_adapter.hpp"
 #include <iostream>
 #include <cstdint>
@@ -546,183 +545,6 @@ TEST_CASE("Cyphal<serard_adapter> Send Forward Receive")
     CHECK(transfer.metadata.remote_node_id == my_id);
 }
 
-void *udpardMemoryAllocate(void *const /*user_reference*/, const size_t size) { return static_cast<void *>(malloc(size)); };
-void udpardMemoryDeallocate(void *const /*user_reference*/, const size_t /*size*/, void *const pointer) { free(pointer); };
-
-TEST_CASE("Udpard Adapter")
-{
-    UdpardAdapter adapter;
-    struct UdpardMemoryDeleter udpard_memory_deleter = {&adapter.ins, udpardMemoryDeallocate};
-    struct UdpardMemoryResource udpard_memory_resource = {&adapter.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-    UdpardNodeID local_node_id = 11;
-    Cyphal<UdpardAdapter> cyphal(&adapter);
-    udpardTxInit(&adapter.ins, &local_node_id, 100, udpard_memory_resource);
-    adapter.memory_resources = {udpard_memory_resource, udpard_memory_resource, udpard_memory_deleter};
-
-    UdpardNodeID initial_node_id = 11;
-    udpardTxInit(&adapter.ins, &initial_node_id, 100, udpard_memory_resource);
-
-    CyphalTransferMetadata metadata;
-    metadata.priority = CyphalPriorityNominal;
-    metadata.transfer_kind = CyphalTransferKindMessage;
-    metadata.port_id = 123;
-    metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.transfer_id = 0;
-
-    const char payload[] = "hello";
-    size_t payload_size = sizeof(payload);
-
-    SUBCASE("cyphalTxPush")
-    {
-        CHECK(cyphal.cyphalTxPush(0, &metadata, payload_size, payload) == 1);
-    }
-
-    SUBCASE("getNodeID and setNodeID")
-    {
-        UdpardNodeID new_node_id = 22;
-        const UdpardNodeID *current_node_id = cyphal.getNodeID();
-        CHECK(*current_node_id == 11);
-
-        cyphal.setNodeID(&new_node_id);
-        current_node_id = cyphal.getNodeID();
-        CHECK(*current_node_id == 22);
-    }
-
-    SUBCASE("cyphalTxForward")
-    {
-        UdpardAdapter adapter2;
-        struct UdpardMemoryDeleter udpard_memory_deleter2 = {&adapter2.ins, udpardMemoryDeallocate};
-        struct UdpardMemoryResource udpard_memory_resource2 = {&adapter2.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-        UdpardNodeID local_node_id2 = 11;
-
-        Cyphal<UdpardAdapter> cyphal2(&adapter2);
-        udpardTxInit(&adapter2.ins, &local_node_id2, 100, udpard_memory_resource2);
-        adapter2.memory_resources = {udpard_memory_resource2, udpard_memory_resource2, udpard_memory_deleter2};
-        UdpardNodeID initial_node_id2 = 11;
-        udpardTxInit(&adapter2.ins, &initial_node_id2, 100, udpard_memory_resource2);
-
-        const char payload[] = "hello";
-        size_t payload_size = sizeof(payload);
-        CHECK(cyphal2.cyphalTxForward(0, &metadata, payload_size, payload, 33) == 1);
-    }
-
-    REQUIRE(adapter.subscriptions.size() == 0);
-    SUBCASE("cyphalRxSubscribe and Unsubscribe")
-    {
-        CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 42, 100, 2000000) == 1);
-        CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 42, 100, 2000000) == 1);
-        CHECK(cyphal.cyphalRxUnsubscribe(CyphalTransferKindMessage, 42) == 1);
-        CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 43, 100, 2000000) == 1);
-        CHECK(cyphal.cyphalRxUnsubscribe(CyphalTransferKindMessage, 43) == 1);
-    }
-    REQUIRE(adapter.subscriptions.size() == 0);
-
-    SUBCASE("cyphalRxSubscribe returns negative on full boxset")
-    {
-        adapter.subscriptions.clear();
-        for (CyphalPortID i = 0; i < UdpardAdapter::SUBSCRIPTIONS; ++i)
-        {
-            CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, i, 100, 2000000) == 1);
-        }
-        CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, UdpardAdapter::SUBSCRIPTIONS + 1, 100, 2000000) == -4);
-    }
-}
-
-TEST_CASE("Udpard Adapter Send and Receive")
-{
-    UdpardAdapter adapter;
-    struct UdpardMemoryDeleter udpard_memory_deleter = {&adapter.ins, udpardMemoryDeallocate};
-    struct UdpardMemoryResource udpard_memory_resource = {&adapter.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-    UdpardNodeID local_node_id = 11;
-    Cyphal<UdpardAdapter> cyphal(&adapter);
-    udpardTxInit(&adapter.ins, &local_node_id, 100, udpard_memory_resource);
-    adapter.memory_resources = {udpard_memory_resource, udpard_memory_resource, udpard_memory_deleter};
-    UdpardNodeID initial_node_id = 11;
-    udpardTxInit(&adapter.ins, &initial_node_id, 100, udpard_memory_resource);
-
-    CyphalTransferMetadata metadata;
-    metadata.priority = CyphalPriorityNominal;
-    metadata.transfer_kind = CyphalTransferKindMessage;
-    metadata.port_id = 123;
-    metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.transfer_id = 13;
-
-    const char payload[] = "hello";
-    size_t payload_size = sizeof(payload);
-    CHECK(cyphal.cyphalTxPush(0, &metadata, payload_size, payload) == 1);
-
-    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 123, 100, 2000000) == 1);
-
-    const UdpardTxItem *const_ptr = udpardTxPeek(&adapter.ins);
-    CHECK(const_ptr != nullptr);
-    UdpardTxItem *ptr = udpardTxPop(&adapter.ins, const_ptr);
-    CHECK(ptr != nullptr);
-
-    CyphalTransfer transfer;
-    cyphal.cyphalRxReceive(&ptr->datagram_payload.size, static_cast<uint8_t *>(ptr->datagram_payload.data), &transfer);
-    CHECK(transfer.payload_size != 0);
-    CHECK(strncmp(payload, static_cast<const char *>(transfer.payload), 5) == 0);
-}
-
-TEST_CASE("Udpard Adapter Forward Send and Receive")
-{
-    constexpr CyphalNodeID my_id = 11;
-    constexpr CyphalNodeID forward_id = 22;
-
-    UdpardAdapter adapter;
-    struct UdpardMemoryDeleter udpard_memory_deleter = {&adapter.ins, udpardMemoryDeallocate};
-    struct UdpardMemoryResource udpard_memory_resource = {&adapter.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-    UdpardNodeID local_node_id = my_id;
-    Cyphal<UdpardAdapter> cyphal(&adapter);
-    udpardTxInit(&adapter.ins, &local_node_id, 100, udpard_memory_resource);
-    adapter.memory_resources = {udpard_memory_resource, udpard_memory_resource, udpard_memory_deleter};
-
-    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, 123, 100, 2000000) == 1);
-
-    CyphalTransferMetadata metadata;
-    metadata.priority = CyphalPriorityNominal;
-    metadata.transfer_kind = CyphalTransferKindMessage;
-    metadata.port_id = 123;
-    metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
-    metadata.transfer_id = 13;
-
-    const char payload1[] = "hello";
-    size_t payload_size1 = sizeof(payload1);
-    CHECK(cyphal.cyphalTxForward(0, &metadata, payload_size1, payload1, forward_id) == 1);
-
-    const UdpardTxItem *const_ptr1 = udpardTxPeek(&adapter.ins);
-    CHECK(const_ptr1 != nullptr);
-    UdpardTxItem *ptr1 = udpardTxPop(&adapter.ins, const_ptr1);
-    CHECK(ptr1 != nullptr);
-
-    CyphalTransfer transfer1;
-    cyphal.cyphalRxReceive(&ptr1->datagram_payload.size, static_cast<uint8_t *>(ptr1->datagram_payload.data), &transfer1);
-    CHECK(transfer1.payload_size != 0);
-    CHECK(strncmp(payload1, static_cast<const char *>(transfer1.payload), 5) == 0);
-    CHECK(transfer1.metadata.remote_node_id == forward_id);
-
-    const char payload2[] = "ehllo";
-    size_t payload_size2 = sizeof(payload2);
-    CHECK(cyphal.cyphalTxPush(0, &metadata, payload_size2, payload2) == 1);
-
-    const UdpardTxItem *const_ptr2 = udpardTxPeek(&adapter.ins);
-    CHECK(const_ptr2 != nullptr);
-    UdpardTxItem *ptr2 = udpardTxPop(&adapter.ins, const_ptr2);
-    CHECK(ptr2 != nullptr);
-
-    CyphalTransfer transfer2;
-    cyphal.cyphalRxReceive(&ptr2->datagram_payload.size, static_cast<uint8_t *>(ptr2->datagram_payload.data), &transfer2);
-    CHECK(transfer2.payload_size != 0);
-    CHECK(strncmp(payload2, static_cast<const char *>(transfer2.payload), 5) == 0);
-    CHECK(transfer2.metadata.remote_node_id == my_id);
-}
-
 void *loopardMemoryAllocate(size_t amount) { return static_cast<void *>(malloc(amount)); };
 void loopardMemoryFree(void *pointer) { free(pointer); };
 
@@ -876,14 +698,14 @@ TEST_CASE("Loopard Forward Send Receive")
     CHECK(transfer.metadata.remote_node_id == my_id);
 }
 
-template <class A1, class A2, class A3, class A4>
+template <class A1, class A2, class A3>
 class TestClass
 {
 private:
-    std::tuple<A1, A2, A3, A4> adapters_;
+    std::tuple<A1, A2, A3> adapters_;
 
 public:
-    TestClass(std::tuple<A1, A2, A3, A4> adapters) : adapters_(adapters) {}
+    TestClass(std::tuple<A1, A2, A3> adapters) : adapters_(adapters) {}
 
     int8_t txpush_unroll(const size_t frame_size, void const *frame)
     {
@@ -899,8 +721,7 @@ public:
         int32_t res0 = std::get<0>(adapters_).cyphalTxPush(0, &metadata, frame_size, frame);
         int32_t res1 = std::get<1>(adapters_).cyphalTxPush(0, &metadata, frame_size, frame);
         int32_t res2 = std::get<2>(adapters_).cyphalTxPush(0, &metadata, frame_size, frame);
-        int32_t res3 = std::get<3>(adapters_).cyphalTxPush(0, &metadata, frame_size, frame);
-        return (res0 > 0) && (res1 > 0) && (res2 > 0) && (res3 > 0);
+        return (res0 > 0) && (res1 > 0) && (res2 > 0);
     }
 
     int8_t txpush_loop(const size_t frame_size, void const *frame)
@@ -910,14 +731,18 @@ public:
         metadata.transfer_kind = CyphalTransferKindMessage;
         metadata.port_id = 123;
         metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
+        metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
+        metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
         metadata.transfer_id = 0;
 
         bool all_successful = true;
         std::apply([&](auto &...adapter)
-                   { ([&]()
-                      {
-                int32_t res = adapter.cyphalTxPush(0, &metadata, frame_size, frame);
-                all_successful = all_successful && (res > 0); }(), ...); }, adapters_);
+                 { ([&]()
+                    {
+                        int32_t res = adapter.cyphalTxPush(0, &metadata, frame_size, frame);
+                        all_successful = all_successful && (res > 0); 
+                    }(), ...);
+                 }, adapters_);
         return all_successful;
     }
 };
@@ -931,14 +756,6 @@ TEST_CASE("All Combined Unroll")
     loopard_adapter.memory_free = loopardMemoryFree;
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard_adapter);
 
-    UdpardAdapter udpard_adapter;
-    struct UdpardMemoryDeleter udpard_memory_deleter = {&udpard_adapter.ins, udpardMemoryDeallocate};
-    struct UdpardMemoryResource udpard_memory_resource = {&udpard_adapter.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-    UdpardNodeID local_node_id = 11;
-    Cyphal<UdpardAdapter> udpard_cyphal(&udpard_adapter);
-    udpardTxInit(&udpard_adapter.ins, &local_node_id, 100, udpard_memory_resource);
-    udpard_adapter.memory_resources = {udpard_memory_resource, udpard_memory_resource, udpard_memory_deleter};
-
     SerardAdapter serard_adapter;
     struct SerardMemoryResource serard_memory_resource = {&serard_adapter.ins, serardMemoryAllocate, serardMemoryDeallocate};
     serard_adapter.ins = serardInit(serard_memory_resource, serard_memory_resource);
@@ -955,14 +772,13 @@ TEST_CASE("All Combined Unroll")
     canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
 
-    auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<UdpardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, udpard_cyphal, serard_cyphal, canard_cyphal});
+    auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, serard_cyphal, canard_cyphal});
 
     const char frame[] = "common message";
     size_t frame_size = sizeof(frame);
     CHECK(adapters.txpush_unroll(frame_size, frame) == 1);
 
     CHECK(loopard_adapter.buffer.size() == 1);
-    CHECK(udpard_adapter.ins.queue_size == 1);
     CHECK(canard_adapter.que.size > 0);
     CHECK(rxtx_buffer.size() > 0);
 }
@@ -972,15 +788,9 @@ TEST_CASE("All Combined Loop")
     rxtx_buffer.clear();
 
     LoopardAdapter loopard_adapter;
+    loopard_adapter.memory_allocate = loopardMemoryAllocate;
+    loopard_adapter.memory_free = loopardMemoryFree;
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard_adapter);
-
-    UdpardAdapter udpard_adapter;
-    struct UdpardMemoryDeleter udpard_memory_deleter = {&udpard_adapter.ins, udpardMemoryDeallocate};
-    struct UdpardMemoryResource udpard_memory_resource = {&udpard_adapter.ins, udpardMemoryDeallocate, udpardMemoryAllocate};
-    UdpardNodeID local_node_id = 11;
-    Cyphal<UdpardAdapter> udpard_cyphal(&udpard_adapter);
-    udpardTxInit(&udpard_adapter.ins, &local_node_id, 100, udpard_memory_resource);
-    udpard_adapter.memory_resources = {udpard_memory_resource, udpard_memory_resource, udpard_memory_deleter};
 
     SerardAdapter serard_adapter;
     struct SerardMemoryResource serard_memory_resource = {&serard_adapter.ins, serardMemoryAllocate, serardMemoryDeallocate};
@@ -998,14 +808,13 @@ TEST_CASE("All Combined Loop")
     canard_adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
     Cyphal<CanardAdapter> canard_cyphal(&canard_adapter);
 
-    auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<UdpardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, udpard_cyphal, serard_cyphal, canard_cyphal});
+    auto adapters = TestClass(std::tuple<Cyphal<LoopardAdapter>, Cyphal<SerardAdapter>, Cyphal<CanardAdapter>>{loopard_cyphal, serard_cyphal, canard_cyphal});
 
     const char frame[] = "common message";
     size_t frame_size = sizeof(frame);
     CHECK(adapters.txpush_loop(frame_size, frame) == 1);
 
     CHECK(loopard_adapter.buffer.size() == 1);
-    CHECK(udpard_adapter.ins.queue_size == 1);
     CHECK(canard_adapter.que.size > 0);
     CHECK(rxtx_buffer.size() > 0);
 }

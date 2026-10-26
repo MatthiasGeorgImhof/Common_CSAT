@@ -120,11 +120,6 @@ public:
 		safeDeallocate(pointer);
 	}
 
-	static void *canardMemoryAllocate(void *const /*user_reference*/, const size_t size)
-	{
-		return safeAllocate(size);
-	}
-
 	static void canardMemoryDeallocate(void *const /*user_reference*/, const size_t /*size*/, void *const pointer)
 	{
 		safeDeallocate(pointer);
@@ -139,16 +134,6 @@ public:
 	{
 		safeDeallocate(pointer);
 	}
-
-	static void *udpardMemoryAllocate(void *const /*user_reference*/, const size_t size)
-	{
-		return safeAllocate(size);
-	}
-
-	static void udpardMemoryDeallocate(void *const /*user_reference*/, const size_t /*size*/, void *const pointer)
-	{
-		safeDeallocate(pointer);
-	};
 
 	static void *loopardMemoryAllocate(const size_t size)
 	{

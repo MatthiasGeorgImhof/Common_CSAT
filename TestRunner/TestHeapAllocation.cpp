@@ -44,15 +44,15 @@ TEST_CASE("Multiple allocations and frees")
     REQUIRE(diag0.capacity > 0);
 
     // Try two 128‑byte allocations, but don't REQUIRE the second one.
-    void* a = HeapAllocation<1024>::udpardMemoryAllocate(nullptr, 128);
+    void* a = HeapAllocation<1024>::canardMemoryAllocate(nullptr, 128);
     REQUIRE(a != nullptr);
 
-    void* b = HeapAllocation<1024>::udpardMemoryAllocate(nullptr, 128);
+    void* b = HeapAllocation<1024>::canardMemoryAllocate(nullptr, 128);
 
     if (b == nullptr)
     {
         // Not enough contiguous space — valid o1heap behavior.
-        HeapAllocation<1024>::udpardMemoryDeallocate(nullptr, 128, a);
+        HeapAllocation<1024>::canardMemoryDeallocate(nullptr, 128, a);
         return;
     }
 
@@ -61,8 +61,8 @@ TEST_CASE("Multiple allocations and frees")
     auto diag = o1heapGetDiagnostics(inst);
     CHECK(diag.allocated >= 256);
 
-    HeapAllocation<1024>::udpardMemoryDeallocate(nullptr, 128, a);
-    HeapAllocation<1024>::udpardMemoryDeallocate(nullptr, 128, b);
+    HeapAllocation<1024>::canardMemoryDeallocate(nullptr, 128, a);
+    HeapAllocation<1024>::canardMemoryDeallocate(nullptr, 128, b);
 
     diag = o1heapGetDiagnostics(inst);
     CHECK(diag.allocated == 0);
