@@ -176,19 +176,19 @@ CANARD_PRIVATE uint32_t txMakeServiceSessionSpecifier(const CanardPortID service
 CANARD_PRIVATE size_t adjustPresentationLayerMTU(const size_t mtu_bytes)
 {
     const size_t max_index = (sizeof(CanardCANLengthToDLC) / sizeof(CanardCANLengthToDLC[0])) - 1U;
-    size_t       mtu       = 0U;
+    size_t       mtu       = mtu_bytes;
     if (mtu_bytes < CANARD_MTU_CAN_CLASSIC)
     {
         mtu = CANARD_MTU_CAN_CLASSIC;
     }
-    else if (mtu_bytes <= max_index)
-    {
-        mtu = CanardCANDLCToLength[CanardCANLengthToDLC[mtu_bytes]];  // Round up to nearest valid length.
-    }
-    else
-    {
-        mtu = CanardCANDLCToLength[CanardCANLengthToDLC[max_index]];
-    }
+    // else if (mtu_bytes <= max_index)
+    // {
+    //     mtu = CanardCANDLCToLength[CanardCANLengthToDLC[mtu_bytes]];  // Round up to nearest valid length.
+    // }
+    // else
+    // {
+    //     mtu = CanardCANDLCToLength[CanardCANLengthToDLC[max_index]];
+    // }
     return mtu - 1U;
 }
 
@@ -272,11 +272,12 @@ CANARD_PRIVATE uint8_t txMakeTailByte(const bool             start_of_transfer,
 /// Takes a frame payload size, returns a new size that is >=x and is rounded up to the nearest valid DLC.
 CANARD_PRIVATE size_t txRoundFramePayloadSizeUp(const size_t x)
 {
-    CANARD_ASSERT(x < (sizeof(CanardCANLengthToDLC) / sizeof(CanardCANLengthToDLC[0])));
-    // Suppressing a false-positive out-of-bounds access error from Sonar. Its control flow analyser is misbehaving.
-    const size_t y = CanardCANLengthToDLC[x];  // NOSONAR
-    CANARD_ASSERT(y < (sizeof(CanardCANDLCToLength) / sizeof(CanardCANDLCToLength[0])));
-    return CanardCANDLCToLength[y];
+    // CANARD_ASSERT(x < (sizeof(CanardCANLengthToDLC) / sizeof(CanardCANLengthToDLC[0])));
+    // // Suppressing a false-positive out-of-bounds access error from Sonar. Its control flow analyser is misbehaving.
+    // const size_t y = CanardCANLengthToDLC[x];  // NOSONAR
+    // CANARD_ASSERT(y < (sizeof(CanardCANDLCToLength) / sizeof(CanardCANDLCToLength[0])));
+    // return CanardCANDLCToLength[y];
+    return x;
 }
 
 /// The item is only allocated and initialized, but NOT included into the queue! The caller needs to do that.

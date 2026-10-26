@@ -9,15 +9,7 @@
 #include "uavcan/diagnostic/Record_1_1.h"
 #include "Logger.hpp"
 
-#include "CanTxQueueDrainer.hpp"
-
-CanTxQueueDrainer::CanTxQueueDrainer(CanardAdapter* /*adapter*/, CAN_HandleTypeDef* /*hcan*/) {}
-
-void CanTxQueueDrainer::drain() {}
-
-void CanTxQueueDrainer::irq_safe_drain() {}
-
-CanTxQueueDrainer tx_drainer{nullptr, nullptr};
+#include "TxQueueDrainer.hpp"
 
 #ifdef LOGGER_OUTPUT_CYPHAL
 void *loopardMemoryAllocate(size_t amount) { return static_cast<void *>(malloc(amount)); };

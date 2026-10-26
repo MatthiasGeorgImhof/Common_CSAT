@@ -7,11 +7,8 @@
 
 #include <cstring>
 #include "BoxSet.hpp"
-#include "CanTxQueueDrainer.hpp"
 
 #if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
-
-extern CanTxQueueDrainer tx_drainer;
 
 static_assert(CYPHAL_NODE_ID_UNSET == CANARD_NODE_ID_UNSET, "unset lengths differ");
 static_assert(sizeof(CyphalTransferMetadata) == sizeof(CanardTransferMetadata), "metadata sizes differ");
@@ -70,7 +67,6 @@ public:
 
         CanardPayload canard_payload = {payload_size, payload};
     	auto res = canardTxPush(&adapter_->que, &adapter_->ins, tx_deadline_usec, reinterpret_cast<const CanardTransferMetadata *>(metadata), canard_payload, 0, nullptr);
-        tx_drainer.irq_safe_drain();
         return res;
     }
 

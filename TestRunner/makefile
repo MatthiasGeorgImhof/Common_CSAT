@@ -6,7 +6,7 @@ CFLAGS = -g -MMD -std=c99
 CXX = g++
 CXXFLAGS = -g -MMD -std=c++20
 EXTRA_FLAGS = -Wall -Wextra -pedantic -Werror -Wconversion -fconcepts-diagnostics-depth=2 -Werror=maybe-uninitialized
-EXTRA_EXTRA_FLAGS = -Wzero-as-null-pointer-constant -Wsign-conversion
+EXTRA_EXTRA_FLAGS = -Wzero-as-null-pointer-constant -Wsign-conversion # -fsanitize=address
 LOGGER_DEFINES = -DLOGGER_ENABLED # -DLOGGER_OUTPUT_STDERR -DLOG_LEVEL=1U
 WIZNET_DEFINES = -D_WIZCHIP_=W5500
 
@@ -32,7 +32,7 @@ INCLUDE_PATHS = -I ../Inc \
 				-I 3rdParty
 
 LIBS_PATH = 
-LIBS = $(BIN_DIR)/cyphal/canard.o $(BIN_DIR)/cyphal/serard.o $(BIN_DIR)/cyphal/udpard.o $(BIN_DIR)/cyphal/o1heap.o
+LIBS = # $(BIN_DIR)/cyphal/canard.o $(BIN_DIR)/cyphal/serard.o $(BIN_DIR)/cyphal/udpard.o $(BIN_DIR)/cyphal/o1heap.o
 
 BIN_DIR = bin
 
@@ -100,21 +100,25 @@ LOOSE_SRC := 		MLX90640_API.c
 
 # Per-test extra dependencies
 EXTRA_OBJS_TestCoordinateTransformations := src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
-EXTRA_OBJS_TestCyphal := src/cyphal.o
+EXTRA_OBJS_TestCyphal := src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestGNSS := src/GNSS.o src/GNSSCore.o src/coordinate_transformations.o src/TimeUtils.o
+EXTRA_OBJS_TestHeapAllocation := cyphal/o1heap.o
 EXTRA_OBJS_TestHSClockSwitch := src/HSClockSwitch.o
-EXTRA_OBJS_TestImageToWritePipeline := src/cyphal.o
+EXTRA_OBJS_TestImageToWritePipeline := src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestIMUExtension := src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
+EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o src/TaskCheckMemory.o
+EXTRA_OBJS_TestLoggerCyphal := src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestLVLHAttitudeTarget= src/LVLHAttitudeTarget.o src/Quaternion.o src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
 EXTRA_OBJS_TestMagnetorquerDriver= src/LVLHAttitudeTarget.o src/Quaternion.o src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
 EXTRA_OBJS_TestMagnetorquerSystem= src/LVLHAttitudeTarget.o src/Quaternion.o src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
-EXTRA_OBJS_TestMainLoop := src/RegistrationManager.o src/ServiceManager.o src/TaskCheckMemory.o src/TaskBlinkLED.o src/cyphal.o
+EXTRA_OBJS_TestMainLoop := src/RegistrationManager.o src/ServiceManager.o src/TaskCheckMemory.o src/TaskBlinkLED.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestMLX90640AgainstMelexis := 3rdParty/MLX90640_API.o
 EXTRA_OBJS_TestMLX90640ImageProcessor := src/MLX90640ImageProcessor.o
+EXTRA_OBJS_TestO1HeapAllocator := cyphal/o1heap.o
 EXTRA_OBJS_TestOrientationService := src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/Quaternion.o
 EXTRA_OBJS_TestOrientationTracker := src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/Quaternion.o
 EXTRA_OBJS_TestPositionTracker9D := src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/GNSSCore.o src/GNSS.o
-EXTRA_OBJS_TestProcessRxQueue := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o
+EXTRA_OBJS_TestProcessRxQueue := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestQuaternion := src/Quaternion.o
 EXTRA_OBJS_TestRegistrationManager := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestServiceManager := src/ServiceManager.o
@@ -122,7 +126,7 @@ EXTRA_OBJS_TestSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/TimeUtils.o src/coordinate
 EXTRA_OBJS_TestSGP4TLE := src/sgp4_tle.o 
 EXTRA_OBJS_TestSubscriptionManager := src/RegistrationManager.o
 EXTRA_OBJS_TestTaskBlinkLED := src/TaskBlinkLED.o src/RegistrationManager.o
-EXTRA_OBJS_TestTaskCheckMemory := src/TaskCheckMemory.o src/RegistrationManager.o
+EXTRA_OBJS_TestTaskCheckMemory := src/TaskCheckMemory.o src/RegistrationManager.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskDetumbler := src/RegistrationManager.o
 EXTRA_OBJS_TestTaskMagnetorquer := src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/Quaternion.o src/RegistrationManager.o src/LVLHAttitudeTarget.o
 EXTRA_OBJS_TestTaskMLX90640 := src/RegistrationManager.o
@@ -130,21 +134,23 @@ EXTRA_OBJS_TestTaskOrientationService := src/RegistrationManager.o src/Quaternio
 EXTRA_OBJS_TestTaskPositionService := src/RegistrationManager.o src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o src/GNSS.o src/GNSSCore.o sgp4/SGP4.o src/sgp4_tle.o 
 EXTRA_OBJS_TestTaskProcessHeartBeat := src/RegistrationManager.o
 EXTRA_OBJS_TestTaskProcessTimeSynchronization := src/RegistrationManager.o src/TimeUtils.o
-EXTRA_OBJS_TestTaskRegisterServer := src/RegistrationManager.o src/cyphal.o
-EXTRA_OBJS_TestTaskRegistrationSubscription := src/RegistrationManager.o src/ServiceManager.o
+EXTRA_OBJS_TestTaskRegisterServer := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
+EXTRA_OBJS_TestTaskRegistrationSubscription := src/RegistrationManager.o src/ServiceManager.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskRequestGetInfo := src/ServiceManager.o src/RegistrationManager.o
-EXTRA_OBJS_TestTaskRequestRead := src/RegistrationManager.o src/cyphal.o
-EXTRA_OBJS_TestTaskRequestWrite := src/RegistrationManager.o src/cyphal.o
+EXTRA_OBJS_TestTaskRequestRead := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
+EXTRA_OBJS_TestTaskRequestWrite := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskRespondGetInfo := src/ServiceManager.o src/RegistrationManager.o
-EXTRA_OBJS_TestTaskRespondWrite := src/RegistrationManager.o src/cyphal.o
-EXTRA_OBJS_TestTaskSendHeartBeat := src/RegistrationManager.o
-EXTRA_OBJS_TestTaskSendNodePortList := src/TaskCheckMemory.o src/TaskBlinkLED.o src/RegistrationManager.o
-EXTRA_OBJS_TestTaskSendTimeSynchronization := src/RegistrationManager.o src/TimeUtils.o
+EXTRA_OBJS_TestTaskRespondWrite := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
+EXTRA_OBJS_TestTaskSendHeartBeat := src/RegistrationManager.o cyphal/o1heap.o
+EXTRA_OBJS_TestTaskSendNodePortList := src/TaskCheckMemory.o src/TaskBlinkLED.o src/RegistrationManager.o cyphal/o1heap.o
+EXTRA_OBJS_TestTaskSendTimeSynchronization := src/RegistrationManager.o src/TimeUtils.o cyphal/o1heap.o
+EXTRA_OBJS_TestSerard := src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskSetRTC := src/RegistrationManager.o src/TimeUtils.o
-EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o 
+EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o src/TimeUtils.o src/coordinate_transformations.o src/coordinate_rotators.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
-EXTRA_OBJS_TestLeak := src/ServiceManager.o src/RegistrationManager.o src/cyphal.o src/TaskCheckMemory.o
+EXTRA_OBJS_TestTxPushRxReceive := src/cyphal.o cyphal/canard.o cyphal/serard.o cyphal/udpard.o cyphal/o1heap.o
+
 
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(WIZNET_OBJECTS) $(CANARD_OBJECTS) $(UDPARD_OBJECTS) $(SERARD_OBJECTS) $(O1HEAP_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
@@ -209,8 +215,18 @@ $(BIN_DIR)/%.o: %.cpp
 	FLAGS="$(call choose_flags,$<)"; \
 	$(CXX) -c $< $$FLAGS $(INCLUDE_PATHS) -o $@
 
-# Generic link rule
-$(BIN_DIR)/%: $(BIN_DIR)/%.o $(BIN_DIR)/src/Logger.o $(BIN_DIR)/libmockhal.a
+## Generic link rule
+#$(BIN_DIR)/%: $(BIN_DIR)/%.o $(BIN_DIR)/src/Logger.o $(BIN_DIR)/libmockhal.a
+#	$(CXX) $(LIBS_PATH) -o $@ \
+#		$(BIN_DIR)/$*.o \
+#		$(BIN_DIR)/src/Logger.o \
+#		$(addprefix $(BIN_DIR)/,$(EXTRA_OBJS_$*)) \
+#		$(LIBS) \
+#		$(BIN_DIR)/libmockhal.a  # -fsanitize=address
+
+# Enable secondary expansion to evaluate dynamic prerequisites
+.SECONDEXPANSION:
+$(BIN_DIR)/%: $(BIN_DIR)/%.o $(BIN_DIR)/src/Logger.o $(BIN_DIR)/libmockhal.a $$(addprefix $(BIN_DIR)/,$$(EXTRA_OBJS_$$*))
 	$(CXX) $(LIBS_PATH) -o $@ \
 		$(BIN_DIR)/$*.o \
 		$(BIN_DIR)/src/Logger.o \

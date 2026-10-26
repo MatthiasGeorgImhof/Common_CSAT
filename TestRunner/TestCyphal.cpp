@@ -21,15 +21,6 @@ void  canardMemoryFree(void* /*ins*/, size_t /*amount*/, void *pointer) { free(p
 
 struct CanardMemoryResource canard_memory = { nullptr, canardMemoryFree, canardMemoryAllocate};
 
-
-CanTxQueueDrainer::CanTxQueueDrainer(CanardAdapter* /*adapter*/, CAN_HandleTypeDef* /*hcan*/) {}
-
-void CanTxQueueDrainer::drain() {}
-
-void CanTxQueueDrainer::irq_safe_drain() {}
-
-CanTxQueueDrainer tx_drainer{nullptr, nullptr};
-
 TEST_CASE("Canard Adapter")
 {
     CanardAdapter adapter;

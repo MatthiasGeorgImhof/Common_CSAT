@@ -15,10 +15,13 @@ static_assert(sizeof(HeaderFrame<8>) == 12, "HeaderFrame<8> should be 12 bytes")
 template <size_t N>
 struct __attribute__((packed)) COBSHeaderFrame
 {
-    const uint8_t start_of_frame = 0x00;
+    static_assert(
+        sizeof(HeaderFrame<N>) <= cobs::max_in_place_size, "HeaderFrame exceeds COBS block limit");
+
+    uint8_t start_of_frame = 0x00;
     uint8_t cobs;
     HeaderFrame<N> header_frame;
-    const uint8_t end_of_frame = 0x00;
+    uint8_t end_of_frame = 0x00;
 };
 static_assert(sizeof(COBSHeaderFrame<8>) == 15, "COBSHeaderFrame<8> should be 15 bytes");
 

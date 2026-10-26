@@ -5,7 +5,6 @@
 #include "cyphal.hpp"
 #include "canard.h"
 #include "serard.h"
-#include "udpard.h"
 
 // ------------------------------------------------------------
 // Local heap adapter for SafeAllocator

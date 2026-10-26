@@ -13,7 +13,7 @@
 #include "ServiceManager.hpp"
 #include "o1heap.h"
 #include "Logger.hpp"
-#include "CanTxQueueDrainer.hpp"
+#include "TxQueueDrainer.hpp"
 
 using LocalHeap = HeapAllocation<65536>;
 
@@ -36,6 +36,15 @@ struct CanRxFrame
     uint8_t data[CAN_MTU];
 };
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
+
+template<size_t MTU>
+struct RxFrame
+{
+    uint32_t ExtId;
+    size_t size;
+    uint8_t data[MTU];
+};
+
 
 template <typename Heap>
 class LoopManager
@@ -96,6 +105,26 @@ public:
         }
     }
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
+
+    template <typename Buffer, typename... Adapters>
+    void ProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, Buffer &rx_buffer)
+    {
+        size_t num_frames = rx_buffer.size();
+        for (uint32_t n = 0; n < num_frames; ++n)
+        {
+            auto frame = rx_buffer.pop();
+            
+            auto ext_id = frame.ExtId;
+            auto size = frame.size;
+            auto data = frame.data;
+            CyphalTransfer transfer;
+            int32_t result = cyphal->cyphalRxReceive(ext_id, &size, data, &transfer);
+            if (result == 1)
+            {
+                processTransfer(transfer, service_manager, adapters);
+            }
+        }
+    }
 
     template <size_t N, typename... Adapters>
     void ProcessRxQueue(Cyphal<SerardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, CircularBuffer<SerialFrame, N> &buffer)
