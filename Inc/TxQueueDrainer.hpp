@@ -42,9 +42,9 @@ void BufTxQueueDrainer<Buffer>::drain()
     {
         canardTxPop(&adapter_->que, ti);
         auto& frame_ = buffer_.begin_write();
-        frame_.ExtId = ti->frame.extended_can_id;
-        frame_.size = ti->frame.payload.size;
-        memcpy(frame_.data, ti->frame.payload.data, frame_.size);
+        frame_.extended_can_id = ti->frame.extended_can_id;
+        frame_.size = static_cast<uint16_t>(ti->frame.payload.size);
+        memcpy(frame_.payload, ti->frame.payload.data, frame_.size);
         buffer_.commit_write();
 
         canardTxFree(&adapter_->que, &adapter_->ins, ti);

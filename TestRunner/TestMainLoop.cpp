@@ -53,11 +53,6 @@ UART_HandleTypeDef *huart2_;
 UART_HandleTypeDef *huart3_;
 CAN_HandleTypeDef *hcan_;
 
-constexpr uint32_t SERIAL_TIMEOUT = 1000;
-constexpr size_t SERIAL_BUFFER_SIZE = 4;
-using SerialCircularBuffer = CircularBuffer<SerialFrame, SERIAL_BUFFER_SIZE>;
-SerialCircularBuffer serial_buffer;
-
 void *canardMemoryAllocate(void *const /*canard*/, const size_t size)
 {
     return o1heapAllocate(o1heap, size);

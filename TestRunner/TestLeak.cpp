@@ -46,8 +46,6 @@
 #include "CC1101Manager.hpp"
 
 #include "Logger.hpp"
-#include "MessageAccumulator.hpp"
-#include "FrameAssembler.hpp"
 
 #include "nunavut_assert.h"
 #include "uavcan/node/Heartbeat_1_0.h"

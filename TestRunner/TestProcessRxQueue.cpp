@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
+#include "cyphal_mtu.hpp"
 #include "loopard_adapter.hpp"
 #include "HeapAllocation.hpp"
 #include "o1heap.h"
@@ -11,7 +12,6 @@
 #include "TxQueueDrainer.hpp"
 #include "CC1101.hpp"
 #include "CC1101Manager.hpp"
-#include "FrameAssembler.hpp"
 
 
 using Heap = HeapAllocation<>;
@@ -274,15 +274,19 @@ TEST_CASE("CanProcessRxQueue with CanardAdapter and MockTask")
     handlers.push(TaskHandler{port_id, task});
     ServiceManager service_manager(handlers);
 
-    CircularBuffer<CanRxFrame, 64> can_rx_buffer;
 
     CHECK(cyphal.cyphalTxPush(0, &transfer.metadata, transfer.payload_size, transfer.payload) == 1);
+
+    using CanRxBuffer = CircularBuffer<HeaderFrame<SMALL_DATA_MTU>, 64>;
+    CanRxBuffer can_rx_buffer;
+    BufTxQueueDrainer<CanRxBuffer> drainer(&canard_adapter, can_rx_buffer);
+    drainer.drain();
 
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
     LoopManager<Heap> loop_manager;
-    loop_manager.CanProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
+    loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
 
     CHECK(can_rx_buffer.size() == 0);
     diagnostics = Heap::getDiagnostics();
@@ -339,16 +343,19 @@ TEST_CASE("CanProcessRxQueue multiple frames")
 
     ServiceManager service_manager(handlers);
 
-    CircularBuffer<CanRxFrame, 64> can_rx_buffer;
-
     CHECK(cyphal.cyphalTxPush(0, &transfer1.metadata, transfer1.payload_size, transfer1.payload) == 1);
     CHECK(cyphal.cyphalTxPush(0, &transfer2.metadata, transfer2.payload_size, transfer2.payload) == 1);
+
+    using CanRxBuffer = CircularBuffer<HeaderFrame<SMALL_DATA_MTU>, 64>;
+    CanRxBuffer can_rx_buffer;
+    BufTxQueueDrainer<CanRxBuffer> drainer(&canard_adapter, can_rx_buffer);
+    drainer.drain();
 
     auto diagnostics = Heap::getDiagnostics();
     size_t allocated_mem = diagnostics.allocated;
 
     LoopManager<Heap> loop_manager;
-    loop_manager.CanProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
+    loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, can_rx_buffer);
 
     CHECK(can_rx_buffer.size() == 0);
     diagnostics = Heap::getDiagnostics();
