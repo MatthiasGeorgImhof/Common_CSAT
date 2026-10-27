@@ -11,6 +11,7 @@
 #include "canard_adapter.hpp"
 
 #include "Serialization.hpp"
+#include "Socket.hpp"
 
 //
 // drain to rx buffer
@@ -148,6 +149,47 @@ void SerialTxQueueDrainer<MTU>::drain()
         COBSFramer<MTU> framer;
         auto data_frame = framer.serialize(ti->frame);
         HAL_UART_Transmit(huart_, reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), 1000);
+
+        canardTxFree(&adapter_->que, &adapter_->ins, ti);
+    }
+}
+
+#endif // !defined(__arm__) || defined(MOCK_HAL_UART_ENABLED)
+
+//
+// drain to UDP socket
+//
+
+#if !defined(__arm__) || defined(MOCK_HAL_SPI_ENABLED)
+
+template<typename UdpSocket, Endpoint destination, uint8_t MTU>
+class UdpTxQueueDrainer
+{
+public:
+    UdpTxQueueDrainer(CanardAdapter* adapter, UdpSocket* socket);
+
+    void drain();
+
+private:
+    CanardAdapter* adapter_;
+    UdpSocket* socket_;
+};
+
+template<typename UdpSocket, Endpoint destination, uint8_t MTU>
+UdpTxQueueDrainer<UdpSocket, destination, MTU>::UdpTxQueueDrainer(CanardAdapter* adapter, UdpSocket* socket)
+    : adapter_(adapter), socket_(socket)
+{}
+
+template<typename UdpSocket, Endpoint destination, uint8_t MTU>
+void UdpTxQueueDrainer<UdpSocket, destination, MTU>::drain()
+{
+	CanardTxQueueItem* ti = nullptr;
+    while ((ti = canardTxPeek(&adapter_->que)) != nullptr)
+    {
+        canardTxPop(&adapter_->que, ti);
+        PlainFramer<MTU> framer;
+        auto data_frame = framer.serialize(ti->frame);
+        socket_->send(reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), destination);
 
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }

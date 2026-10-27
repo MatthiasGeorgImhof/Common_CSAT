@@ -146,7 +146,7 @@ EXTRA_OBJS_TestTaskSGP4 := sgp4/SGP4.o src/sgp4_tle.o src/RegistrationManager.o 
 EXTRA_OBJS_TestTaskSubscribeNodePortList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTimeUtils := src/TimeUtils.o 
 EXTRA_OBJS_TestTxPushRxReceive := src/cyphal.o cyphal/canard.o cyphal/o1heap.o
-
+EXTRA_OBJS_TestTxQueueDrainer := src/cyphal.o cyphal/canard.o cyphal/o1heap.o
 
 ALL_SRC_OBJECTS := $(SRC_OBJECTS) $(SGP4_OBJECTS) $(WIZNET_OBJECTS) $(CANARD_OBJECTS) $(SERARD_OBJECTS) $(O1HEAP_OBJECTS) $(THIRDPARTY_OBJECTS) $(MOCK_HAL_OBJECTS)
 
