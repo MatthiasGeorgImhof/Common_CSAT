@@ -12,7 +12,6 @@ struct __attribute__((packed)) HeaderFrame
 };
 static_assert(sizeof(HeaderFrame<8>) == 14, "HeaderFrame<8> should be 14 bytes");
 
-
 template <size_t N>
 struct __attribute__((packed)) COBSHeaderFrame
 {
@@ -79,4 +78,15 @@ struct COBSFramer
     }
 };
 
+template<size_t N>
+HeaderFrame<N>& GetHeaderFrame(HeaderFrame<N>& frame)
+{
+    return frame;
+}
 
+template<size_t N>
+HeaderFrame<N>& GetHeaderFrame(COBSHeaderFrame<N>& frame)
+{
+    cobs::decode_in_place(frame.cobs, reinterpret_cast<uint8_t*>(&frame.header_frame));
+    return frame.header_frame;
+}

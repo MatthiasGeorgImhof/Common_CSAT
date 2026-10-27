@@ -6,10 +6,10 @@
 
 #include "cyphal.hpp"
 #include "canard_adapter.hpp"
-#include "serard_adapter.hpp"
 #include "loopard_adapter.hpp"
 
 #include "CircularBuffer.hpp"
+#include "Serialization.hpp"
 #include "ServiceManager.hpp"
 #include "o1heap.h"
 #include "Logger.hpp"
@@ -37,13 +37,13 @@ struct CanRxFrame
 };
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
 
-template<size_t MTU>
-struct RxFrame
-{
-    uint32_t ExtId;
-    size_t size;
-    uint8_t data[MTU];
-};
+// template<size_t MTU>
+// struct RxFrame
+// {
+//     uint32_t ExtId;
+//     size_t size;
+//     uint8_t data[MTU];
+// };
 
 
 template <typename Heap>
@@ -106,46 +106,14 @@ public:
     }
 #endif // defined(HAL_CAN_MODULE_ENABLED) || defined(MOCK_HAL_CAN_ENABLED)
 
-    template <size_t N, typename... Adapters>
-    void ProcessRxQueue(Cyphal<SerardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, CircularBuffer<SerialFrame, N> &buffer)
-    {
-        size_t num_frames = buffer.size();
-        log(LOG_LEVEL_TRACE, "LoopManager::SerialProcessRxQueue size: %d\r\n", num_frames);
-        for (uint32_t n = 0; n < num_frames; ++n)
-        {
-            SerialFrame frame = buffer.pop();
-            size_t frame_size = frame.size;
-            size_t shift = 0;
-
-//        	constexpr size_t BUFFER_SIZE = 256;
-//        	char hex_string_buffer[BUFFER_SIZE];
-//        	uchar_buffer_to_hex(frame.data + shift, frame_size, hex_string_buffer, BUFFER_SIZE);
-//            log(LOG_LEVEL_DEBUG, "LoopManager::SerialProcessRxQueue dump: %s\r\n", hex_string_buffer);
-
-            CyphalTransfer transfer;
-            for (;;)
-            {
-                int32_t result = cyphal->cyphalRxReceive(&frame_size, frame.data + shift, &transfer);
-
-                if (result == 1)
-                {
-                    processTransfer(transfer, service_manager, adapters);
-                }
-
-                if (frame_size == 0)
-                    break;
-                shift = frame.size - frame_size;
-            }
-        }
-    }
-
     template <typename Buffer, typename... Adapters>
     void ProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, Buffer &rx_buffer)
     {
         size_t num_frames = rx_buffer.size();
         for (uint32_t n = 0; n < num_frames; ++n)
         {
-            auto frame = rx_buffer.pop();
+            auto raw_frame = rx_buffer.pop();
+            auto frame = GetHeaderFrame(raw_frame);
             
             uint32_t ext_id = frame.extended_can_id;
             size_t size = static_cast<uint16_t>(frame.size);
