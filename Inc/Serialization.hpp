@@ -10,6 +10,13 @@ struct __attribute__((packed)) HeaderFrame
     uint16_t size;
     uint8_t payload[N];
 };
+
+template<size_t N>
+constexpr size_t serialized_size(const HeaderFrame<N>& frame)
+{
+    return offsetof(HeaderFrame<N>, payload) + frame.size;
+}
+
 static_assert(sizeof(HeaderFrame<8>) == 14, "HeaderFrame<8> should be 14 bytes");
 
 template <size_t N>
@@ -33,6 +40,7 @@ struct PlainFramer
     {
         HeaderFrame<N> header_frame;
         header_frame.extended_can_id = frame.extended_can_id;
+        header_frame.size = static_cast<uint16_t>(frame.payload.size);
         memcpy(header_frame.payload, frame.payload.data, frame.payload.size);
 
         return header_frame;
@@ -43,7 +51,7 @@ struct PlainFramer
     {
         CanardFrame frame;
         frame.extended_can_id = header_frame.extended_can_id;
-        frame.payload.size = N;
+        frame.payload.size = header_frame.size;
         frame.payload.data = header_frame.payload;
         return frame;
     }

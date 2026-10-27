@@ -29,23 +29,37 @@ TEST_CASE("PlainFramer serialize")
     CHECK(std::memcmp(header.payload, payload, 8) == 0);
 }
 
+TEST_CASE("PlainFramer serialized_size")
+{
+    uint8_t payload[3] = {1,2,3};
+
+    HeaderFrame<8> frame {};
+    frame.extended_can_id = 0x12345678;
+    frame.size = sizeof(payload);
+    memcpy(frame.payload, payload, sizeof(payload));
+
+    CHECK(serialized_size<8>(frame) == sizeof(payload)+ 6);
+}
+
 TEST_CASE("PlainFramer deserialize")
 {
+    const uint16_t SIZE =7;
     PlainFramer<8> framer;
 
     HeaderFrame<8> header {};
     header.extended_can_id = 0x12345678;
 
-    for(size_t i = 0; i < 8; ++i)
+    for(size_t i = 0; i < SIZE; ++i)
     {
         header.payload[i] = static_cast<uint8_t>(i);
     }
+    header.size = SIZE;
 
     CanardFrame frame = framer.deserialize(header);
 
     CHECK(frame.extended_can_id == 0x12345678);
-    CHECK(frame.payload.size == 8);
-    CHECK(std::memcmp(frame.payload.data, header.payload, 8) == 0);
+    CHECK(frame.payload.size == 7);
+    CHECK(std::memcmp(frame.payload.data, header.payload, SIZE) == 0);
 }
 
 TEST_CASE("PlainFramer round trip")

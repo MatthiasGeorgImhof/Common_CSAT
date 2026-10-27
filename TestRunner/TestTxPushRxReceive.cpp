@@ -4,6 +4,7 @@
 #include "cyphal.hpp"
 #include "cyphal_mtu.hpp"
 #include "canard_adapter.hpp"
+#include "Socket.hpp"
 #include <iostream>
 #include <cstdint>
 #include <vector>
