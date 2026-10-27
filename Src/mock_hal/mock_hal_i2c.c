@@ -2,6 +2,7 @@
 
 #include "mock_hal/mock_hal_i2c.h"
 #include <string.h>
+#include <stdlib.h>
 
 //--- I2C Buffers ---
 uint8_t i2c_rx_buffer[I2C_MEM_BUFFER_SIZE]; // I2C RX buffer
@@ -13,13 +14,13 @@ uint16_t i2c_tx_buffer_count = 0;           // Number of bytes in I2C TX buffer
 uint16_t i2c_mem_buffer_dev_address; // I2C device address
 uint16_t i2c_mem_buffer_mem_address; // I2C memory address
 
-uint32_t HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint8_t *pData, uint16_t Size, uint32_t /*Timeout*/)
+uint32_t HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint8_t *pData, uint16_t size, uint32_t /*Timeout*/)
 {
     if (hi2c == NULL || pData == NULL)
     {
         return 1; // HAL_ERROR; // Check for NULL pointers
     }
-    if (Size > I2C_MEM_BUFFER_SIZE)
+    if (size > I2C_MEM_BUFFER_SIZE)
     {
         return 1; // HAL_ERROR; // Check for size limits
     }
@@ -28,25 +29,27 @@ uint32_t HAL_I2C_Master_Transmit(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, u
     i2c_mem_buffer_dev_address = DevAddress;
     i2c_mem_buffer_mem_address = 0; // Not a memory transfer
 
-    i2c_tx_buffer_count = Size;
-    memcpy(i2c_tx_buffer, pData, Size);
+    if (size > sizeof(i2c_tx_buffer)) abort();
+    i2c_tx_buffer_count = size;
+    memcpy(i2c_tx_buffer, pData, size);
     return 0;
 }
 
-uint32_t HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint8_t *pData, uint16_t Size, uint32_t /*Timeout*/)
+uint32_t HAL_I2C_Master_Receive(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint8_t *pData, uint16_t size, uint32_t /*Timeout*/)
 {
     if (hi2c == NULL || pData == NULL)
         return 1;
-    if (i2c_rx_buffer_count < Size)
+    if (i2c_rx_buffer_count < size)
         return 1;
     if (i2c_mem_buffer_dev_address != DevAddress)
         return 1;
 
-    memcpy(pData, i2c_rx_buffer, Size);
+    if (size > sizeof(i2c_tx_buffer)) abort();
+    memcpy(pData, i2c_rx_buffer, size);
     return 0;
 }
 
-uint32_t HAL_I2C_Mem_Read(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, uint16_t /*MemAddSize*/, uint8_t *pData, uint16_t Size, uint32_t /*Timeout*/)
+uint32_t HAL_I2C_Mem_Read(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, uint16_t /*MemAddSize*/, uint8_t *pData, uint16_t size, uint32_t /*Timeout*/)
 {
     if (hi2c == NULL || pData == NULL)
     {
@@ -58,7 +61,7 @@ uint32_t HAL_I2C_Mem_Read(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t
     //     return 1; // HAL_ERROR, invalid address
     // }
 
-    if (i2c_rx_buffer_count < Size)
+    if (i2c_rx_buffer_count < size)
     {
         return 1; // HAL_ERROR, invalid address
     }
@@ -67,11 +70,12 @@ uint32_t HAL_I2C_Mem_Read(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t
     i2c_mem_buffer_dev_address = DevAddress;
     i2c_mem_buffer_mem_address = MemAddress;
 
-    memcpy(pData, i2c_rx_buffer, Size);
+    if (size > sizeof(i2c_tx_buffer)) abort();
+    memcpy(pData, i2c_rx_buffer, size);
     return 0;
 }
 
-uint32_t HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, uint16_t /*MemAddSize*/, uint8_t *pData, uint16_t Size, uint32_t /*Timeout*/)
+uint32_t HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, uint16_t /*MemAddSize*/, uint8_t *pData, uint16_t size, uint32_t /*Timeout*/)
 {
     if (hi2c == NULL || pData == NULL)
     {
@@ -82,8 +86,9 @@ uint32_t HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_
     i2c_mem_buffer_dev_address = DevAddress;
     i2c_mem_buffer_mem_address = MemAddress;
 
-    i2c_tx_buffer_count = Size;
-    memcpy(i2c_tx_buffer, pData, Size);
+    if (size > sizeof(i2c_tx_buffer)) abort();
+    i2c_tx_buffer_count = size;
+    memcpy(i2c_tx_buffer, pData, size);
     return 0;
 }
 
@@ -91,6 +96,7 @@ uint32_t HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_
 void inject_i2c_tx_data(uint16_t DevAddress, const uint8_t *data, uint16_t size)
 {
     i2c_mem_buffer_dev_address = DevAddress;
+    if (size > sizeof(i2c_tx_buffer)) abort();
     memcpy(i2c_tx_buffer, data, size);
     i2c_tx_buffer_count = size;
 }
@@ -98,6 +104,7 @@ void inject_i2c_tx_data(uint16_t DevAddress, const uint8_t *data, uint16_t size)
 void inject_i2c_rx_data(uint16_t DevAddress, const uint8_t *data, uint16_t size)
 {
     i2c_mem_buffer_dev_address = DevAddress;
+    if (size > I2C_MEM_BUFFER_SIZE) abort();
     memcpy(i2c_rx_buffer, data, size);
     i2c_rx_buffer_count = size;
 }

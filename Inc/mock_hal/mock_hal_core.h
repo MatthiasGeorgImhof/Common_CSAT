@@ -5,14 +5,14 @@
 #include <stdbool.h>
 
 //--- Buffer Size Defines ---
-#define CAN_TX_BUFFER_SIZE    50   // Size of the CAN transmit buffer
-#define CAN_RX_BUFFER_SIZE    50   // Size of the CAN receive buffer
-#define UART_TX_BUFFER_SIZE   256  // Size of the UART transmit buffer
-#define UART_RX_BUFFER_SIZE   256  // Size of the UART receive buffer
-#define I2C_MEM_BUFFER_SIZE   256  // Size of the I2C memory buffer
-#define USB_TX_BUFFER_SIZE    256  // Size of the USB transmit buffer
-#define SPI_TX_BUFFER_SIZE    256  // Size of the SPI transmit buffer
-#define SPI_RX_BUFFER_SIZE    256  // Size of the SPI receive buffer
+#define CAN_TX_BUFFER_SIZE    50    // Size of the CAN transmit buffer
+#define CAN_RX_BUFFER_SIZE    50    // Size of the CAN receive buffer
+#define UART_TX_BUFFER_SIZE   2048  // Size of the UART transmit buffer
+#define UART_RX_BUFFER_SIZE   2048  // Size of the UART receive buffer
+#define I2C_MEM_BUFFER_SIZE   2048  // Size of the I2C memory buffer
+#define USB_TX_BUFFER_SIZE    2048  // Size of the USB transmit buffer
+#define SPI_TX_BUFFER_SIZE    2048  // Size of the SPI transmit buffer
+#define SPI_RX_BUFFER_SIZE    2048  // Size of the SPI receive buffer
 #define DCMI_IMAGE_BUFFER_SIZE  (640*480)  //Example VGA resolution. Adjust for your use case
 
 //------------------------------------------------------------------------------
