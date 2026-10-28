@@ -31,8 +31,7 @@ private:
 };
 
 template<typename Buffer>
-BufTxQueueDrainer<Buffer>::BufTxQueueDrainer(CanardAdapter* adapter, Buffer& buffer)
-    : adapter_(adapter), buffer_(buffer)
+BufTxQueueDrainer<Buffer>::BufTxQueueDrainer(CanardAdapter* adapter, Buffer& buffer) : adapter_(adapter), buffer_(buffer)
 {}
 
 template<typename Buffer>
