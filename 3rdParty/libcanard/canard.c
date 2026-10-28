@@ -175,7 +175,7 @@ CANARD_PRIVATE uint32_t txMakeServiceSessionSpecifier(const CanardPortID service
 /// This is the transport MTU rounded up to next full DLC minus the tail byte.
 CANARD_PRIVATE size_t adjustPresentationLayerMTU(const size_t mtu_bytes)
 {
-    const size_t max_index = (sizeof(CanardCANLengthToDLC) / sizeof(CanardCANLengthToDLC[0])) - 1U;
+	// const size_t max_index = (sizeof(CanardCANLengthToDLC) / sizeof(CanardCANLengthToDLC[0])) - 1U;
     size_t       mtu       = mtu_bytes;
     if (mtu_bytes < CANARD_MTU_CAN_CLASSIC)
     {
