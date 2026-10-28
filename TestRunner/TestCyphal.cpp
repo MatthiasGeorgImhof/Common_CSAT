@@ -93,6 +93,37 @@ TEST_CASE("Canard Adapter")
     }
 }
 
+TEST_CASE("CAN ID contains source node id")
+{
+    constexpr CyphalNodeID node_id = 21;
+    constexpr CyphalPortID port_id = 7509;
+
+    CanardAdapter adapter;
+    adapter.ins = canardInit(canard_memory);
+    adapter.ins.node_id = node_id;
+    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
+
+    Cyphal<CanardAdapter> cyphal(&adapter);
+
+    CyphalTransferMetadata metadata;
+    metadata.priority = CyphalPriorityNominal;
+    metadata.transfer_kind = CyphalTransferKindMessage;
+    metadata.port_id = port_id;
+    metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
+    metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
+    metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
+    metadata.transfer_id = 0;
+
+    const char payload[] = "hello";
+
+    REQUIRE(cyphal.cyphalTxPush( 0, &metadata, sizeof(payload), payload) > 0);
+    CanardTxQueueItem* ti = canardTxPeek(&adapter.que);
+    REQUIRE(ti != nullptr);
+    printf("extended can id: %8x\n", ti->frame.extended_can_id);
+    CHECK((ti->frame.extended_can_id & 0x7FU) == node_id);
+    CHECK((ti->frame.extended_can_id>>8 & 0x1FFFU) == port_id);
+}
+
 TEST_CASE("Canard Send Receive")
 {
     CanardAdapter adapter;
