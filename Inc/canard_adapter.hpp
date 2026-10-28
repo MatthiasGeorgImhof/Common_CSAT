@@ -8,7 +8,7 @@
 #include <cstring>
 #include "BoxSet.hpp"
 
-#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
+//#if !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
 
 static_assert(CYPHAL_NODE_ID_UNSET == CANARD_NODE_ID_UNSET, "unset lengths differ");
 static_assert(sizeof(CyphalTransferMetadata) == sizeof(CanardTransferMetadata), "metadata sizes differ");
@@ -137,4 +137,4 @@ public:
 // Call the checks *after* the class definition
 static_assert((checkCyphalAdapterAPI<CanardAdapter>(), true), "CanardAdapter fails API check");
 
-#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)
+//#endif // !defined(__arm__) || defined(HAL_CAN_MODULE_ENABLED)

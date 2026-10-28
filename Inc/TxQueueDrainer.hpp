@@ -115,7 +115,7 @@ void CanTxQueueDrainer::irq_safe_drain()
 // drain to Serial
 //
 
-#if !defined(__arm__) || defined(MOCK_HAL_UART_ENABLED)
+#if !defined(__arm__) || defined(HAL_UART_MODULE_ENABLED)
 
 template<uint8_t MTU>
 class SerialTxQueueDrainer
@@ -154,13 +154,13 @@ void SerialTxQueueDrainer<MTU>::drain()
     }
 }
 
-#endif // !defined(__arm__) || defined(MOCK_HAL_UART_ENABLED)
+#endif // !defined(__arm__) || defined(HAL_UART_MODULE_ENABLED)
 
 //
 // drain to UDP socket
 //
 
-#if !defined(__arm__) || defined(MOCK_HAL_SPI_ENABLED)
+#if !defined(__arm__) || defined(HAL_SPI_MODULE_ENABLED)
 
 template<typename UdpSocket, Endpoint destination, uint8_t MTU>
 class UdpTxQueueDrainer
@@ -195,4 +195,4 @@ void UdpTxQueueDrainer<UdpSocket, destination, MTU>::drain()
     }
 }
 
-#endif // !defined(__arm__) || defined(MOCK_HAL_UART_ENABLED)
+#endif // !defined(__arm__) || defined(HAL_SPI_MODULE_ENABLED)

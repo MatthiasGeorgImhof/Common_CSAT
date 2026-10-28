@@ -66,6 +66,7 @@ struct COBSFramer
     {
         COBSHeaderFrame<N> cobs_frame;
         cobs_frame.header_frame.extended_can_id = frame.extended_can_id;
+        cobs_frame.header_frame.size = static_cast<uint16_t>(frame.payload.size);
         memcpy(cobs_frame.header_frame.payload, frame.payload.data, frame.payload.size);
 
         cobs_frame.cobs = cobs::encode_in_place(reinterpret_cast<uint8_t*>(&cobs_frame.header_frame), sizeof(cobs_frame.header_frame));
@@ -80,7 +81,7 @@ struct COBSFramer
 
         CanardFrame frame;
         frame.extended_can_id = cobs_frame.header_frame.extended_can_id;
-        frame.payload.size = N;
+        frame.payload.size = cobs_frame.header_frame.size;
         frame.payload.data = cobs_frame.header_frame.payload;
         return frame;
     }
@@ -95,6 +96,6 @@ HeaderFrame<N>& GetHeaderFrame(HeaderFrame<N>& frame)
 template<size_t N>
 HeaderFrame<N>& GetHeaderFrame(COBSHeaderFrame<N>& frame)
 {
-    cobs::decode_in_place(frame.cobs, reinterpret_cast<uint8_t*>(&frame.header_frame));
+    cobs::decode_in_place(frame.cobs, reinterpret_cast<uint8_t*>(&frame.header_frame), sizeof(frame.header_frame));
     return frame.header_frame;
 }

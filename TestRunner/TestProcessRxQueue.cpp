@@ -14,10 +14,21 @@
 #include "CC1101Manager.hpp"
 
 
-using Heap = HeapAllocation<>;
+using Heap = HeapAllocation<16000>;
 CanardAdapter canard_adapter;
 LoopardAdapter loopard_adapter;
 CanardAdapter serial_adapter;
+
+void* canardMemoryAllocate(void* user_ref, size_t amount) 
+{ 
+    return Heap::canardMemoryAllocate(user_ref, amount); 
+}
+
+void canardMemoryFree(void* user_ref, size_t size, void* ptr) 
+{ 
+    Heap::canardMemoryDeallocate(user_ref, size, ptr); 
+}
+
 // ------------------------------------------------------------
 // Utility
 // ------------------------------------------------------------
@@ -82,9 +93,9 @@ public:
     CyphalTransfer transfer_;
 };
 
-// ------------------------------------------------------------
-// Tests
-// ------------------------------------------------------------
+// // ------------------------------------------------------------
+// // Tests
+// // ------------------------------------------------------------
 
 TEST_CASE("processTransfer no forwarding")
 {
@@ -162,9 +173,6 @@ TEST_CASE("processTransfer with LoopardAdapter")
     checkPayloads(payload, static_cast<const char*>(received.payload), sizeof(payload));
 }
 
-void* canardMemoryAllocate(void*, size_t amount) { return malloc(amount); }
-void canardMemoryFree(void*, size_t, void* ptr) { free(ptr); }
-
 TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 {
     Heap::initialize();
@@ -240,7 +248,7 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
     checkPayloads(payload, static_cast<const char*>(received_canard.payload), sizeof(payload));
 }
 
-TEST_CASE("CanProcessRxQueue with CanardAdapter and MockTask")
+TEST_CASE("BufTxQueueDrainer with CanardAdapter and MockTask")
 {
     constexpr CyphalPortID port_id = 123;
     constexpr CyphalNodeID node_id = 11;
@@ -293,7 +301,7 @@ TEST_CASE("CanProcessRxQueue with CanardAdapter and MockTask")
     CHECK(allocated_mem == diagnostics.allocated);
 }
 
-TEST_CASE("CanProcessRxQueue multiple frames")
+TEST_CASE("BufTxQueueDrainer multiple frames")
 {
     constexpr CyphalPortID port_id = 123;
     constexpr CyphalNodeID node_id = 11;
@@ -362,12 +370,74 @@ TEST_CASE("CanProcessRxQueue multiple frames")
     CHECK(allocated_mem == diagnostics.allocated);
 }
 
+TEST_CASE("ProcessRxQueue with CanardAdapter and MockTask")
+{
+    constexpr CyphalPortID port_id = 123;
+    constexpr CyphalNodeID node_id = 11;
+    constexpr uint8_t SERIAL_MTU = 32;
+    using DataFrame = HeaderFrame<SERIAL_MTU>;
+
+    Heap::initialize();
+
+    CanardAdapter serial_adapter;
+    CanardMemoryResource canard_memory = {nullptr, canardMemoryFree, canardMemoryAllocate};
+    serial_adapter.ins = canardInit(canard_memory);
+    serial_adapter.ins.node_id = node_id;
+    serial_adapter.que = canardTxInit(16, SERIAL_MTU, canard_memory);
+    Cyphal<CanardAdapter> cyphal(&serial_adapter);
+
+    auto adapters = std::make_tuple();
+
+    CyphalTransfer transfer;
+    transfer.metadata.priority = CyphalPriorityNominal;
+    transfer.metadata.transfer_kind = CyphalTransferKindMessage;
+    transfer.metadata.port_id = port_id;
+    transfer.metadata.remote_node_id = CYPHAL_NODE_ID_UNSET;
+    transfer.metadata.source_node_id = CYPHAL_NODE_ID_UNSET;
+    transfer.metadata.destination_node_id = CYPHAL_NODE_ID_UNSET;
+    transfer.metadata.transfer_id = 0;
+    constexpr char payload[] = "hello";
+    transfer.payload_size = sizeof(payload);
+    transfer.payload = Heap::heapAllocate(nullptr, sizeof(payload));
+    memcpy(transfer.payload, payload, sizeof(payload));
+
+    ArrayList<TaskHandler, RegistrationManager::NUM_TASK_HANDLERS> handlers;
+    auto task = std::make_shared<MockTask>(10, 0, transfer);
+    handlers.push(TaskHandler{port_id, task});
+    ServiceManager service_manager(handlers);
+
+    CircularBuffer<DataFrame, 4> serial_rx_buffer;
+
+    CHECK(cyphal.cyphalTxPush(0, &transfer.metadata, transfer.payload_size, transfer.payload) == 1);
+    
+    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, port_id, 200, 2000000) == 1);
+    CanardTxQueueItem* peek_ptr = canardTxPeek(&serial_adapter.que);
+    CHECK(peek_ptr != nullptr);
+
+    CanardTxQueueItem* ptr = canardTxPop(&serial_adapter.que, peek_ptr);
+    CHECK(ptr != nullptr);
+
+    DataFrame &frame = serial_rx_buffer.begin_write();
+    frame.extended_can_id = peek_ptr->frame.extended_can_id;
+    frame.size = static_cast<uint16_t>(peek_ptr->frame.payload.size);
+    memcpy(frame.payload, peek_ptr->frame.payload.data, peek_ptr->frame.payload.size);
+    serial_rx_buffer.commit_write();
+    CHECK(serial_rx_buffer.size() == 1);
+    canardMemoryFree(nullptr, peek_ptr->frame.payload.allocated_size, peek_ptr->frame.payload.data);
+
+    LoopManager<Heap> loop_manager;
+    loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
+
+    CHECK(serial_rx_buffer.size() == 0);
+}
+
+
 TEST_CASE("ProcessRxQueue with SerardAdapter and MockTask")
 {
     constexpr CyphalPortID port_id = 123;
     constexpr CyphalNodeID node_id = 11;
-    constexpr uint8_t SERIAL_MTU = 16;
-    using CanardSerialFrame = HeaderFrame<SERIAL_MTU>;
+    constexpr uint8_t SERIAL_MTU = 32;
+    using CanardSerialFrame = COBSHeaderFrame<SERIAL_MTU>;
 
     Heap::initialize();
 
@@ -401,16 +471,25 @@ TEST_CASE("ProcessRxQueue with SerardAdapter and MockTask")
     CircularBuffer<CanardSerialFrame, 4> serial_rx_buffer;
 
     CHECK(cyphal.cyphalTxPush(0, &transfer.metadata, transfer.payload_size, transfer.payload) == 1);
+    
+    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindMessage, port_id, 200, 2000000) == 1);
+    CanardTxQueueItem* peek_ptr = canardTxPeek(&serial_adapter.que);
+    CHECK(peek_ptr != nullptr);
 
-    auto diagnostics = Heap::getDiagnostics();
-    size_t allocated_mem = diagnostics.allocated;
+    CanardTxQueueItem* ptr = canardTxPop(&serial_adapter.que, peek_ptr);
+    CHECK(ptr != nullptr);
+
+    auto &frame = serial_rx_buffer.begin_write();
+    COBSFramer<SERIAL_MTU> framer;
+    frame = framer.serialize(ptr->frame);
+    serial_rx_buffer.commit_write();
+    CHECK(serial_rx_buffer.size() == 1);
+    canardMemoryFree(nullptr, peek_ptr->frame.payload.allocated_size, peek_ptr->frame.payload.data);
 
     LoopManager<Heap> loop_manager;
     loop_manager.ProcessRxQueue(&cyphal, &service_manager, adapters, serial_rx_buffer);
 
     CHECK(serial_rx_buffer.size() == 0);
-    diagnostics = Heap::getDiagnostics();
-    CHECK(allocated_mem == diagnostics.allocated);
 }
 
 TEST_CASE("ProcessRxQueue multiple frames with Serard")

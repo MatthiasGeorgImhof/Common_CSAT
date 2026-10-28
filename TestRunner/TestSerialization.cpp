@@ -246,3 +246,42 @@ TEST_CASE("COBSFramer exhaustive zero positions")
     }
 }
 
+TEST_CASE("GetHeaderFrame returns original HeaderFrame")
+{
+    HeaderFrame<8> frame{};
+
+    frame.extended_can_id = 0x12345678;
+    frame.size = 3;
+
+    auto& header = GetHeaderFrame(frame);
+
+    const uint32_t id = header.extended_can_id;
+    const uint16_t size = header.size;
+
+    CHECK(&header == &frame);
+    CHECK(id == 0x12345678);
+    CHECK(size == 3);
+}
+
+TEST_CASE("GetHeaderFrame decodes COBSHeaderFrame")
+{
+    COBSFramer<8> framer;
+
+    uint8_t payload[8] = {0,1,0,2,0,3,0,4};
+
+    CanardMutableFrame in{};
+    in.extended_can_id = 0x12003400;
+    in.payload.size = 8;
+    in.payload.data = payload;
+
+    auto wire = framer.serialize(in);
+
+    auto& header = GetHeaderFrame(wire);
+
+    const uint32_t id = header.extended_can_id;
+    const uint16_t size = header.size;
+
+    CHECK(id == 0x12003400);
+    CHECK(size == 8);
+    CHECK(std::memcmp(header.payload, payload, 8) == 0);
+}
