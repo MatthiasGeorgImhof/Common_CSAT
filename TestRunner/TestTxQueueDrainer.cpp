@@ -208,7 +208,7 @@ TEST_CASE("SerialTxQueueDrainer encodes with COBS and transmits via UART")
 
     SUBCASE("Drains successfully when UART is not busy")
     {
-        set_mocked_uart_state(HAL_UART_STATE_READY);
+        set_mocked_uart_gstate(&huart, HAL_UART_STATE_READY);
         clear_uart_tx_buffer();
 
         drainer.drain();
@@ -219,14 +219,14 @@ TEST_CASE("SerialTxQueueDrainer encodes with COBS and transmits via UART")
 
     SUBCASE("Halts drain when UART state is busy")
     {
-        set_mocked_uart_state(HAL_UART_STATE_BUSY_TX);
+        set_mocked_uart_gstate(&huart, HAL_UART_STATE_BUSY_TX);
         drainer.drain();
         
         // Frame must remain in queue since UART was busy
         CHECK(canardTxPeek(&adapter.que) != nullptr);
 
         // Clears once ready
-        set_mocked_uart_state(HAL_UART_STATE_READY);
+        set_mocked_uart_gstate(&huart, HAL_UART_STATE_READY);
         drainer.drain();
         CHECK(canardTxPeek(&adapter.que) == nullptr);
     }

@@ -23,6 +23,7 @@ extern "C" {
 #define  HAL_UART_STATE_BUSY_TX_RX    0x00000023U
 #define  HAL_UART_STATE_TIMEOUT       0x000000A0U
 #define  HAL_UART_STATE_ERROR         0x000000E0U
+typedef uint32_t HAL_UART_StateTypeDef;
 
 //--- UARTEx Defines ---
 #define HAL_UART_RXEVENT_HT   0  // UART Rx Event: Half Transfer
@@ -43,9 +44,10 @@ typedef struct {
 
 typedef struct {
    UART_InitTypeDef Init;   // UART initialization structure
+   HAL_UART_StateTypeDef gState{HAL_UART_STATE_READY};  // General UART state
+   HAL_UART_StateTypeDef RxState{HAL_UART_STATE_READY}; // UART receive state
 } UART_HandleTypeDef;
 
-typedef uint32_t HAL_UART_StateTypeDef;
 typedef uint32_t HAL_UART_RxEventTypeTypeDef; // Type for UART Rx Event
 
 //--- UART Mock Function Prototypes ---
@@ -74,7 +76,8 @@ HAL_StatusTypeDef HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *huart, uint8_
 extern uint32_t mocked_uart_rx_event_type;
 void set_mocked_uart_rx_event_type(uint32_t event_type);
 
-void set_mocked_uart_state(HAL_UART_StateTypeDef state);
+void set_mocked_uart_gstate(UART_HandleTypeDef *huart, HAL_UART_StateTypeDef state);
+void set_mocked_uart_rxstate(UART_HandleTypeDef *huart, HAL_UART_StateTypeDef state);
 
 #ifdef __cplusplus
 }

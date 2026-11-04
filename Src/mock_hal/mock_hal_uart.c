@@ -22,8 +22,6 @@ extern uint32_t current_tick;
 //--- UARTEx Mock Variables ---
 HAL_UART_RxEventTypeTypeDef mocked_uart_rx_event_type = 0; // Mocked UART Rx event type
 
-HAL_UART_StateTypeDef mocked_uart_state = 0;
-
 uint32_t HAL_UART_Transmit(UART_HandleTypeDef * /*huart*/, uint8_t *pData, uint16_t Size, uint32_t /*Timeout*/)
 {
     if (uart_tx_buffer_count + Size <= UART_TX_BUFFER_SIZE)
@@ -179,14 +177,19 @@ uint32_t HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *huart, uint8_t *pData,
     return bytes_received == Size ? 0 : 1; // HAL_OK if all bytes are received
 }
 
-void set_mocked_uart_state(HAL_UART_StateTypeDef state)
+void set_mocked_uart_gstate(UART_HandleTypeDef *huart, HAL_UART_StateTypeDef state)
 {
-    mocked_uart_state = state;
+    huart->gState = state;
 }
 
-HAL_UART_StateTypeDef HAL_UART_GetState(UART_HandleTypeDef */*huart*/)
+void set_mocked_uart_rxstate(UART_HandleTypeDef *huart, HAL_UART_StateTypeDef state)
 {
-    return mocked_uart_state;
+    huart->RxState = state;
+}
+
+HAL_UART_StateTypeDef HAL_UART_GetState(UART_HandleTypeDef *huart)
+{
+    return huart->gState || huart->RxState;
 }
 
 #endif

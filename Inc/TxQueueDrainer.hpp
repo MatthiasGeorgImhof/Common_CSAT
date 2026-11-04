@@ -127,6 +127,7 @@ public:
 private:
     CanardAdapter* adapter_;
     UART_HandleTypeDef* huart_;
+    COBSHeaderFrame<MTU> dma_frame_{};
 };
 
 
@@ -141,13 +142,13 @@ void SerialTxQueueDrainer<MTU>::drain()
 	CanardTxQueueItem* ti = nullptr;
     while ((ti = canardTxPeek(&adapter_->que)) != nullptr)
     {
-        if (HAL_UART_GetState(huart_) == HAL_UART_STATE_BUSY_TX)
+        if (this->huart_->gState != HAL_UART_STATE_READY)
             break;
         
         canardTxPop(&adapter_->que, ti);
         COBSFramer<MTU> framer;
-        auto data_frame = framer.serialize(ti->frame);
-        HAL_UART_Transmit(huart_, reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), 1000);
+        dma_frame_ = framer.serialize(ti->frame);
+        HAL_UART_Transmit_DMA(huart_, reinterpret_cast<uint8_t*>(&dma_frame_), sizeof(dma_frame_));
 
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }

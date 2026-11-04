@@ -29,7 +29,7 @@ int format_frame(char* buffer, size_t buffer_size, uint32_t ext_id, size_t size,
     if (!buffer || buffer_size == 0) return 0;
 
     // 1. Write the Extended ID and Size
-    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08lx, Size: %4u, Data: ", ext_id, size);
+    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08ux, Size: %4lu, Data: ", ext_id, size);
     if (written < 0 || static_cast<size_t>(written) >= buffer_size) {
         buffer[buffer_size - 1] = '\0';
         return written;
@@ -37,8 +37,8 @@ int format_frame(char* buffer, size_t buffer_size, uint32_t ext_id, size_t size,
 
     // 2. Append payload data in HEX
     for (size_t i = 0; i < size; ++i) {
-        int ret = std::snprintf(buffer + written, buffer_size - written, "%02x ", data[i]);
-        if (ret < 0 || static_cast<size_t>(ret) >= (buffer_size - written)) {
+        int ret = std::snprintf(buffer + static_cast<size_t>(written), buffer_size - static_cast<size_t>(written), "%02x ", data[i]);
+        if (ret < 0 || static_cast<size_t>(ret) >= (buffer_size - static_cast<size_t>(written))) {
             // Buffer is full, stop safely
             break;
         }
@@ -53,8 +53,8 @@ int format_frame(char* buffer, size_t buffer_size, const uint8_t* data, size_t s
 
     int written = 0;
     for (size_t i = 0; i < size; ++i) {
-        int ret = std::snprintf(buffer + written, buffer_size - written, "%02x ", data[i]);
-        if (ret < 0 || static_cast<size_t>(ret) >= (buffer_size - written)) {
+        int ret = std::snprintf(buffer + static_cast<size_t>(written), buffer_size - static_cast<size_t>(written), "%02x ", data[i]);
+        if (ret < 0 || static_cast<size_t>(ret) >= (buffer_size - static_cast<size_t>(written))) {
             // Buffer is full, stop safely
             break;
         }

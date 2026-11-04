@@ -49,9 +49,9 @@ using CanardCyphal = Cyphal<CanardAdapter>;
 using SerardCyphal = Cyphal<CanardAdapter>;
 
 constexpr CyphalNodeID cyphal_node_id = 11;
-UART_HandleTypeDef *huart2_;
-UART_HandleTypeDef *huart3_;
-CAN_HandleTypeDef *hcan_;
+UART_HandleTypeDef huart2__;
+UART_HandleTypeDef *huart2_ = &huart2__;
+CAN_HandleTypeDef *hcan_ = nullptr;
 
 void *canardMemoryAllocate(void *const /*canard*/, const size_t size)
 {
