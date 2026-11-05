@@ -97,6 +97,7 @@ LOOSE_SRC := 		MLX90640_API.c
 # Per-test extra dependencies
 EXTRA_OBJS_TestCoordinateTransformations := src/coordinate_transformations.o src/coordinate_rotators.o src/TimeUtils.o
 EXTRA_OBJS_TestCyphal := src/cyphal.o cyphal/canard.o cyphal/o1heap.o
+EXTRA_OBJS_TestCyphalHelper := src/cyphal.o
 EXTRA_OBJS_TestGNSS := src/GNSS.o src/GNSSCore.o src/coordinate_transformations.o src/TimeUtils.o
 EXTRA_OBJS_TestHeapAllocation := cyphal/o1heap.o
 EXTRA_OBJS_TestHSClockSwitch := src/HSClockSwitch.o

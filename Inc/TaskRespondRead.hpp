@@ -81,7 +81,8 @@ bool TaskRespondRead<Heap, Accessor, Adapters...>::respond()
                                          reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_file_Read_Response_1_1_serialize_),
                                          transfer->metadata.port_id, transfer->metadata.remote_node_id, transfer->metadata.transfer_id);
 
-    log(LOG_LEVEL_DEBUG, "TaskRespondRead: Sent response for path '%s', offset %zu, size %zu\r\n", request_data.path.path.elements, request_data.offset, response_data.data.value.count);
+    log(LOG_LEVEL_DEBUG, "TaskRespondRead: Sent response for path '%s', offset %u, size %u\r\n", 
+        request_data.path.path.elements, static_cast<unsigned int>(request_data.offset), static_cast<unsigned int>(response_data.data.value.count));
 
     return true;
 }

@@ -31,7 +31,7 @@ int format_frame(char* buffer, size_t buffer_size, uint32_t ext_id, size_t size,
 
     // 1. Write the Extended ID and Size
 
-    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08" PRIx32 ", Size: %4zu, Data: ", ext_id, size);
+    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08" PRIx32 ", Size: %4u, Data: ", ext_id, static_cast<unsigned int>(size));
     if (written < 0 || static_cast<size_t>(written) >= buffer_size) {
         buffer[buffer_size - 1] = '\0';
         return written;

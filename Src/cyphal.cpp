@@ -41,7 +41,7 @@ void unpackTransfer(const CyphalTransfer *transfer, int8_t (*deserialize)(uint8_
 #
 #
 
-bool is_service(uint32_t ext_id) { return ext_id & 0x2000; }
+bool is_service(uint32_t ext_id) { return ext_id & 0x02000000; }
 
 CyphalHeader parse_message_header(uint32_t header)
 {
