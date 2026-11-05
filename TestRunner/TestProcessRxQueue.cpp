@@ -100,7 +100,8 @@ public:
 TEST_CASE("processTransfer no forwarding")
 {
     Heap::initialize();
-    
+    constexpr CyphalNodeID node_id = 42;
+
     auto adapters = std::make_tuple();
 
     CyphalTransfer transfer;
@@ -123,7 +124,7 @@ TEST_CASE("processTransfer no forwarding")
 
     LoopManager<Heap> loop_manager;
 
-    bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
+    bool result = loop_manager.processTransfer(transfer, &service_manager, node_id, adapters);
 
     CHECK(result == true);
     CHECK(task.use_count() == 2);
@@ -132,12 +133,14 @@ TEST_CASE("processTransfer no forwarding")
 TEST_CASE("processTransfer with LoopardAdapter")
 {
     Heap::initialize();
+    constexpr CyphalNodeID node_id = 42;
 
     LoopardAdapter adapter;
     adapter.memory_allocate = Heap::loopardMemoryAllocate;
     adapter.memory_free = Heap::loopardMemoryDeallocate;
     Cyphal<LoopardAdapter> cyphal(&adapter);
     auto adapters = std::make_tuple(cyphal);
+    cyphal.setNodeID(node_id);  
 
     CyphalTransfer transfer;
     transfer.metadata.priority = CyphalPriorityNominal;
@@ -159,7 +162,7 @@ TEST_CASE("processTransfer with LoopardAdapter")
 
     LoopManager<Heap> loop_manager;
 
-    bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
+    bool result = loop_manager.processTransfer(transfer, &service_manager, node_id, adapters);
 
     CHECK(result == true);
     CHECK(adapter.buffer.size() == 1);
@@ -176,10 +179,12 @@ TEST_CASE("processTransfer with LoopardAdapter")
 TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 {
     Heap::initialize();
+    constexpr CyphalNodeID node_id = 11;
 
     LoopardAdapter loopard_adapter;
     loopard_adapter.memory_allocate = Heap::loopardMemoryAllocate;
     loopard_adapter.memory_free = Heap::loopardMemoryDeallocate;
+    loopard_adapter.node_id = 11;
 
     Cyphal<LoopardAdapter> loopard_cyphal(&loopard_adapter);
 
@@ -215,7 +220,7 @@ TEST_CASE("processTransfer with LoopardAdapter and CanardAdapter")
 
     LoopManager<Heap> loop_manager;
 
-    bool result = loop_manager.processTransfer(transfer, &service_manager, adapters);
+    bool result = loop_manager.processTransfer(transfer, &service_manager, node_id, adapters);
 
     CHECK(result == true);
     CHECK(loopard_adapter.buffer.size() == 1);
@@ -563,6 +568,7 @@ TEST_CASE("ProcessRxQueue multiple frames with Serard")
 TEST_CASE("LoopProcessRxQueue with LoopardAdapter and MockTask")
 {
     constexpr CyphalPortID port_id = 123;
+    constexpr CyphalNodeID node_id = 42;
 
     Heap::initialize();
 
@@ -574,6 +580,7 @@ TEST_CASE("LoopProcessRxQueue with LoopardAdapter and MockTask")
     adapter.memory_free = Heap::loopardMemoryDeallocate;
 
     Cyphal<LoopardAdapter> cyphal(&adapter);
+    cyphal.setNodeID(node_id);
     auto adapters = std::make_tuple();
 
     CyphalTransfer transfer;
@@ -608,6 +615,7 @@ TEST_CASE("LoopProcessRxQueue multiple frames with LoopardAdapter")
 {
     constexpr CyphalPortID port_id1 = 123;
     constexpr CyphalPortID port_id2 = 124;
+    constexpr CyphalNodeID node_id = 42;
 
     Heap::initialize();
 
@@ -619,6 +627,7 @@ TEST_CASE("LoopProcessRxQueue multiple frames with LoopardAdapter")
     adapter.memory_free = Heap::loopardMemoryDeallocate;
 
     Cyphal<LoopardAdapter> cyphal(&adapter);
+    cyphal.setNodeID(node_id);
     auto adapters = std::make_tuple();
 
     CyphalTransfer transfer1;
@@ -669,6 +678,7 @@ TEST_CASE("LoopProcessRxQueue multiple frames with LoopardAdapter")
 TEST_CASE("Full Loop Test with LoopardAdapter and MockTask")
 {
     constexpr CyphalPortID port_id = 123;
+    constexpr CyphalNodeID node_id = 11;
 
     Heap::initialize();
 
@@ -677,6 +687,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTask")
     adapter.memory_free = Heap::loopardMemoryDeallocate;
 
     Cyphal<LoopardAdapter> cyphal(&adapter);
+    cyphal.setNodeID(node_id);
     auto adapters = std::make_tuple();
 
     CyphalTransfer transfer;
@@ -726,6 +737,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTask")
 TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
 {
     constexpr CyphalPortID port_id = 123;
+    constexpr CyphalNodeID node_id = 11;
 
     Heap::initialize();
 
@@ -734,6 +746,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
     adapter.memory_free = Heap::loopardMemoryDeallocate;
 
     Cyphal<LoopardAdapter> cyphal(&adapter);
+    cyphal.setNodeID(node_id);
     auto adapters = std::make_tuple();
 
     CyphalTransfer transfer1;

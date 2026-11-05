@@ -30,7 +30,6 @@ int format_frame(char* buffer, size_t buffer_size, uint32_t ext_id, size_t size,
     if (!buffer || buffer_size == 0) return 0;
 
     // 1. Write the Extended ID and Size
-
     int written = std::snprintf(buffer, buffer_size, "ID: 0x%08" PRIx32 ", Size: %4u, Data: ", ext_id, static_cast<unsigned int>(size));
     if (written < 0 || static_cast<size_t>(written) >= buffer_size) {
         buffer[buffer_size - 1] = '\0';
@@ -74,14 +73,46 @@ public:
 
     // Common transfer processing function
     template <typename... Adapters>
-    bool processTransfer(CyphalTransfer &transfer, ServiceManager *service_manager, std::tuple<Adapters...> &adapters)
+    bool processTransfer(CyphalTransfer &transfer, ServiceManager *service_manager, uint32_t my_node_id, std::tuple<Adapters...> &adapters)
     {
 
 
         using ManagedT = ManagedCyphalTransfer<Heap>;
         SafeAllocator<ManagedT, Heap> alloc;
         auto transfer_ptr = std::allocate_shared<ManagedT>(alloc, transfer);
-        service_manager->handleMessage(transfer_ptr);    	
+
+        switch (transfer.metadata.transfer_kind)
+        {
+        case CyphalTransferKindMessage:
+            log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Message transfer received for port %04d\r\n", transfer.metadata.port_id);
+            service_manager->handleMessage(transfer_ptr);
+            break;
+        case CyphalTransferKindRequest:
+            if (transfer.metadata.destination_node_id == my_node_id)
+            {
+                log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Request transfer received for port %04d\r\n", transfer.metadata.port_id);
+                service_manager->handleMessage(transfer_ptr);
+            }
+            else
+            {
+                log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Request transfer not for this node (port %04d, destination: %3d)\r\n", transfer.metadata.port_id, transfer.metadata.destination_node_id);
+            }
+            break;
+        case CyphalTransferKindResponse:
+            if (transfer.metadata.destination_node_id == my_node_id)
+            {
+                log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Response transfer received for port %04d\r\n", transfer.metadata.port_id);
+                service_manager->handleMessage(transfer_ptr);
+            }
+            else
+            {
+                log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Response transfer not for this node (port %04d, destination: %3d)\r\n", transfer.metadata.port_id, transfer.metadata.destination_node_id);
+            }
+            break;
+        default:
+            log(LOG_LEVEL_ERROR, "LoopManager::processTransfer: Unknown transfer kind %d received for port %04d\r\n", transfer.metadata.transfer_kind, transfer.metadata.port_id);
+            return false;
+        }
 
         bool all_successful = true;
         std::apply([&](auto &...adapter)
@@ -117,7 +148,7 @@ public:
             int32_t result = cyphal->cyphalRxReceive(ext_id, &size, data, &transfer);
             if (result == 1)
             {
-                processTransfer(transfer, service_manager, adapters);
+                processTransfer(transfer, service_manager, cyphal->getNodeID(), adapters);
             }
         }
     }
@@ -128,7 +159,7 @@ public:
         CyphalTransfer transfer;
         while (cyphal->cyphalRxReceive(nullptr, nullptr, &transfer))
         {
-            processTransfer(transfer, service_manager, adapters);
+            processTransfer(transfer, service_manager, cyphal->getNodeID(), adapters);
         }
     }
 };
