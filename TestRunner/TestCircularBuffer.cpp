@@ -125,9 +125,9 @@ TEST_CASE("CircularBuffer Functionality")
         cbf.push(4); // Overwrites the first element (1)
         CHECK(cbf.size() == 3);
 
+        CHECK(cbf.pop() == 1);
         CHECK(cbf.pop() == 2);
         CHECK(cbf.pop() == 3);
-        CHECK(cbf.pop() == 4);
     }
 
     SUBCASE("Testing Underflow behavior Returns Garbage")
@@ -151,9 +151,12 @@ TEST_CASE("CircularBuffer Functionality")
         cbf.push(4); // drop 1
         cbf.push(5); // drop 2
 
+        CHECK(cbf.peek() == 1);
+        CHECK(cbf.pop() == 1);
+        CHECK(cbf.peek() == 2);
+        CHECK(cbf.pop() == 2);
         CHECK(cbf.peek() == 3);
         CHECK(cbf.pop() == 3);
-        CHECK(cbf.peek() == 4);
     }
 
     SUBCASE("pop() on empty buffer preserves invariants")
@@ -195,14 +198,14 @@ TEST_CASE("CircularBuffer - Wrap-Around Overflow")
     cbf.push(4); // head is 0 again
 
     REQUIRE(cbf.is_full() == true);
-    cbf.push(5); // Overflow:  0 is dropped, cbf is now 1,2,3,4,5
+    cbf.push(5); // Overflow:  5 is dropped, cbf is now 0,1,2,3,4
     REQUIRE(cbf.size() == 5);
 
-    CHECK(cbf.pop() == 1); // Verify correct wrap-around order
+    CHECK(cbf.pop() == 0); // Verify correct wrap-around order
+    CHECK(cbf.pop() == 1);
     CHECK(cbf.pop() == 2);
     CHECK(cbf.pop() == 3);
     CHECK(cbf.pop() == 4);
-    CHECK(cbf.pop() == 5);
     CHECK(cbf.is_empty());
 }
 
@@ -215,12 +218,12 @@ TEST_CASE("CircularBuffer - Peek and Overflow Interaction")
     CHECK(cbf.peek() == 10); // Peek at the oldest value
     cbf.push(30);
     CHECK(cbf.is_full());
-    cbf.push(40); // Overflow: 10 is dropped, the size is at 3.
+    cbf.push(40); // Overflow: 40 is dropped, the size is at 3.
 
-    CHECK(cbf.peek() == 20); // Should still return the correct oldest value
+    CHECK(cbf.peek() == 10); // Should still return the correct oldest value
+    CHECK(cbf.pop() == 10);
     CHECK(cbf.pop() == 20);
     CHECK(cbf.pop() == 30);
-    CHECK(cbf.pop() == 40);
 }
 
 //
@@ -248,9 +251,9 @@ TEST_CASE("CircularBuffer - Shared Pointers")
 
     REQUIRE(cbf.size() == 3);
 
+    CHECK(*cbf.pop() == 1);
     CHECK(*cbf.pop() == 2);
     CHECK(*cbf.pop() == 3);
-    CHECK(*cbf.pop() == 4);
     CHECK(cbf.is_empty());
 }
 
@@ -264,12 +267,12 @@ TEST_CASE("CircularBuffer - next() test")
 
     REQUIRE(cbf.is_full());
 
-    cbf.next() = 40; // Overflow.  The first value is deallocated
+    cbf.next() = 40; // Overflow.  The first value is still valid but will be dropped on the next pop.
     REQUIRE(cbf.size() == 3);
 
+    CHECK(cbf.pop() == 10);
     CHECK(cbf.pop() == 20);
     CHECK(cbf.pop() == 30);
-    CHECK(cbf.pop() == 40);
     CHECK(cbf.is_empty());
 }
 

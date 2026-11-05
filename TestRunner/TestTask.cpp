@@ -400,12 +400,11 @@ TEST_CASE("TaskFromBuffer - Buffer Overflow") {
     REQUIRE(task.getBufferSize() == CIRC_BUF_SIZE); // Should remain full
 
     // Pop and Check
-    for (size_t i = 1; i < CIRC_BUF_SIZE; ++i) {
+    for (size_t i = 0; i < CIRC_BUF_SIZE; ++i) {
         auto popped_transfer = task.popExpanded();
         CHECK(*static_cast<uint8_t*>(popped_transfer->payload) == i);
     }
-    auto popped_transfer = task.popExpanded();
-    CHECK(*static_cast<uint8_t*>(popped_transfer->payload) == CIRC_BUF_SIZE);
+    REQUIRE(task.getBufferSize() == 0);
 }
 
 TEST_CASE("TaskFromBuffer - Pop from Empty Buffer") {

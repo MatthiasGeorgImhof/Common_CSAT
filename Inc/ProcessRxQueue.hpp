@@ -20,6 +20,7 @@ using LocalHeap = HeapAllocation<65536>;
 #include <cstdio>
 #include <cstdint>
 #include <cstddef>
+#include <cinttypes>
 
 /**
  * Formats a CAN frame into a string buffer.
@@ -29,7 +30,8 @@ int format_frame(char* buffer, size_t buffer_size, uint32_t ext_id, size_t size,
     if (!buffer || buffer_size == 0) return 0;
 
     // 1. Write the Extended ID and Size
-    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08ux, Size: %4lu, Data: ", ext_id, size);
+
+    int written = std::snprintf(buffer, buffer_size, "ID: 0x%08" PRIx32 ", Size: %4zu, Data: ", ext_id, size);
     if (written < 0 || static_cast<size_t>(written) >= buffer_size) {
         buffer[buffer_size - 1] = '\0';
         return written;

@@ -34,22 +34,37 @@ public:
         return ((h + 1) % RealCapacity) == t;
     }
 
+    /**
+     * Always safe to call: returns scratch slot data_[head_].
+     * Producer NEVER modifies tail_.
+     */
     T& begin_write()
     {
-        if (is_full())
-        {
-            size_t t = tail_.load(std::memory_order_relaxed);
-            tail_.store((t + 1) % RealCapacity, std::memory_order_release);
-        }
         return data_[head_.load(std::memory_order_relaxed)];
     }
 
-    void commit_write()
+    /**
+     * Commits the slot written by begin_write().
+     * Returns true if successfully queued, or false if dropped because full.
+     */
+    bool commit_write()
     {
         size_t h = head_.load(std::memory_order_relaxed);
-        head_.store((h + 1) % RealCapacity, std::memory_order_release);
-    }
+        size_t t = tail_.load(std::memory_order_acquire);
 
+        // Check if full
+        if (((h + 1) % RealCapacity) == t)
+        {
+            // QUEUE IS FULL!
+            // Do NOT advance head_. The data written to data_[head_] 
+            // is safely abandoned. Zero data corruption.
+            return false; 
+        }
+
+        head_.store((h + 1) % RealCapacity, std::memory_order_release);
+        return true;
+    }
+    
     T pop()
     {
         if (is_empty())
