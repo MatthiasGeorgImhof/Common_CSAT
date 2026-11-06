@@ -51,7 +51,7 @@ public:
             if (len > static_cast<int32_t>(sizeof(frame)))
             {
                 log(LOG_LEVEL_ERROR, "UdpRxQueueFiller: packet len %d > buffer MTU %d\r\n", len, sizeof(frame));
-                break;
+                continue;
             }
 
             // 5. Wire protocol validation: len MUST match the Cyphal HeaderFrame framing
