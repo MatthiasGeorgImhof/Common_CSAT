@@ -278,6 +278,7 @@ TEST_CASE("UdpTxQueueDrainer drains single Cyphal frame")
 {
     constexpr CyphalPortID PORT_ID = 123;
     constexpr uint8_t MTU = 64;
+    constexpr uint16_t LOCAL_PORT = 9382;
 
     CanardAdapter adapter;
     adapter.ins = canardInit(canard_memory);
@@ -300,8 +301,8 @@ TEST_CASE("UdpTxQueueDrainer drains single Cyphal frame")
     REQUIRE(canardTxPeek(&adapter.que) != nullptr);
 
     MockUdpDriver driver;
-    UdpSocket<MockUdpDriver> socket(driver, MockUdpDriver::SOCKET_0);
-    UdpTxQueueDrainer<UdpSocket<MockUdpDriver>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
+    UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT> socket(driver);
+    UdpTxQueueDrainer<UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
 
     drainer.drain();
 
@@ -316,6 +317,7 @@ TEST_CASE("UdpTxQueueDrainer transmits correct serialized frame")
 {
     constexpr CyphalPortID PORT_ID = 123;
     constexpr uint8_t MTU = 64;
+    constexpr uint16_t LOCAL_PORT = 9382;
 
     CanardAdapter adapter;
     adapter.ins = canardInit(canard_memory);
@@ -342,8 +344,8 @@ TEST_CASE("UdpTxQueueDrainer transmits correct serialized frame")
     auto expected = framer.serialize(item->frame);
 
     MockUdpDriver driver;
-    UdpSocket<MockUdpDriver> socket(driver, MockUdpDriver::SOCKET_0);
-    UdpTxQueueDrainer<UdpSocket<MockUdpDriver>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
+    UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT> socket(driver);
+    UdpTxQueueDrainer<UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
     drainer.drain();
 
     REQUIRE(driver.send_count == 1);
@@ -355,6 +357,7 @@ TEST_CASE("UdpTxQueueDrainer drains all queued frames")
 {
     constexpr CyphalPortID PORT_ID = 123;
     constexpr uint8_t MTU = SMALL_DATA_MTU;
+    constexpr uint16_t LOCAL_PORT = 9382;
 
     CanardAdapter adapter;
     adapter.ins = canardInit(canard_memory);
@@ -380,8 +383,8 @@ TEST_CASE("UdpTxQueueDrainer drains all queued frames")
     REQUIRE(cyphal.cyphalTxPush(0, &metadata, sizeof(payload), payload) >= 2);
 
     MockUdpDriver driver;
-    UdpSocket<MockUdpDriver> socket(driver, MockUdpDriver::SOCKET_0);
-    UdpTxQueueDrainer<UdpSocket<MockUdpDriver>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
+    UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT> socket(driver);
+    UdpTxQueueDrainer<UdpSocket<MockUdpDriver, MockUdpDriver::SOCKET_0, LOCAL_PORT>, TEST_ENDPOINT, MTU> drainer(&adapter, &socket);
     drainer.drain();
 
     CHECK(driver.send_count >= 2);

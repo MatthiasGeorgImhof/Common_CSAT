@@ -11,21 +11,16 @@ struct Endpoint
     uint16_t    port;
 };
 
-template<typename Driver>
+template<typename Driver, typename Driver::SOCKET_NUMBER socket_number>
 class SocketBase
 {
 protected:
-    SocketBase(Driver& driver,
-               typename Driver::SOCKET_NUMBER socket_number)
-        : driver_(driver)
-        , socket_(socket_number)
-    {
-    }
+    SocketBase(Driver& driver) : driver_(driver) {}
 
 public:
     uint16_t available() const
     {
-        return driver_.rxAvailable(socket_);
+        return driver_.rxAvailable(socket_number);
     }
 
     bool poll() const
@@ -35,90 +30,101 @@ public:
 
 protected:
     Driver& driver_;
-    typename Driver::SOCKET_NUMBER socket_;
 };
 
-template<UdpSocketConcept Driver, uint16_t Port = 0>
-class UdpSocket : public SocketBase<Driver>
+template<typename Driver, typename Driver::SOCKET_NUMBER socket_number, uint16_t local_port>
+class UdpSocket : public SocketBase<Driver, socket_number>
 {
 public:
-    UdpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
+    UdpSocket(Driver& driver) : SocketBase<Driver, socket_number>(driver) {}
 
-    bool open(uint16_t local_port = Port)
+    bool open()
     {
-        return this->driver_.openUdp(this->socket_, local_port);
+        return this->driver_.openUdp(socket_number, local_port);
     }
 
     void close()
     {
-        this->driver_.closeUdp(this->socket_);
+        this->driver_.closeUdp(socket_number);
+    }
+
+    bool reopen()
+    {
+        this->driver_.closeUdp(socket_number);
+        return this->driver_.openUdp(socket_number, local_port);
     }
 
     bool send(const uint8_t* data, uint16_t size, const Endpoint& destination)
     {
-        return this->driver_.sendUdp(this->socket_, data, size, destination.address, destination.port) >= 0;
+        return this->driver_.sendUdp(socket_number, data, size, destination.address, destination.port) >= 0;
     }
 
     int32_t receive(uint8_t* data, uint16_t size, Endpoint& source)
     {
-        return this->driver_.receiveUdp(this->socket_, data, size, source.address, source.port);
+        return this->driver_.receiveUdp(socket_number, data, size, source.address, source.port);
     }
 };
 
-template<TcpSocketConcept  Driver, uint16_t Port = 0>
-class TcpSocket : public SocketBase<Driver>
+template<TcpSocketConcept  Driver, typename Driver::SOCKET_NUMBER socket_number, uint16_t local_port>
+class TcpSocket : public SocketBase<Driver, socket_number>
 {
 public:
-    TcpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
+    TcpSocket(Driver& driver) : SocketBase<Driver, socket_number>(driver) {}
 
-    bool open(uint16_t local_port = Port)
+    bool open()
     {
-        return this->driver_.openTcp(this->socket_, local_port);
+        return this->driver_.openTcp(socket_number, local_port);
     }
 
     void close()
     {
-        this->driver_.closeTcp(this->socket_);
+        this->driver_.closeTcp(socket_number);
+    }
+
+    bool reopen()
+    {
+        this->driver_.closeUdp(socket_number);
+        return this->driver_.openUdp(socket_number, local_port);
     }
 
     bool connectTo(const Endpoint& destination)
     {
-        return this->driver_.connectTcp(this->socket_, destination.address, destination.port);
+        return this->driver_.connectTcp(socket_number, destination.address, destination.port);
     }
 
     bool disconnect()
     {
-        return this->driver_.disconnectTcp(this->socket_);
+        return this->driver_.disconnectTcp(socket_number);
     }
 
     bool listen()
     {
-        return this->driver_.listenTcp(this->socket_);
+        return this->driver_.listenTcp(socket_number);
     }
 
     uint8_t status() const
     {
-        return this->driver_.socketStatus(this->socket_);
+        return this->driver_.socketStatus(socket_number);
     }
 
     uint16_t rxAvailable() const
     {
-        return this->driver_.rxAvailable(this->socket_);
+        return this->driver_.rxAvailable(socket_number);
     }
 
     uint16_t txAvailable() const
     {
-        return this->driver_.txAvailable(this->socket_);
+        return this->driver_.txAvailable(socket_number);
     }
 
     int32_t send(
         const uint8_t* data, uint16_t size)
     {
-        return this->driver_.sendTcp(this->socket_, data, size);
+        return this->driver_.sendTcp(socket_number, data, size);
     }
 
     int32_t receive(uint8_t* data, uint16_t size)
     {
-        return this->driver_.receiveTcp(this->socket_, data, size);
+        return this->driver_.receiveTcp(socket_number, data, size);
     }
 };

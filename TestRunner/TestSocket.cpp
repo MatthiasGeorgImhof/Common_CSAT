@@ -152,19 +152,23 @@ public:
 
 TEST_CASE("UdpSocket open forwards to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 9382;
+    
     MockDriver driver;
-    UdpSocket socket(driver, MockDriver::SOCKET_3);
+    UdpSocket<MockDriver, MockDriver::SOCKET_3, LOCAL_PORT> socket(driver);
 
-    CHECK(socket.open(9382));
+    CHECK(socket.open());
     CHECK(driver.open_called);
     CHECK(driver.open_socket == MockDriver::SOCKET_3);
-    CHECK(driver.open_port == 9382);
+    CHECK(driver.open_port == LOCAL_PORT);
 }
 
 TEST_CASE("UdpSocket close forwards to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 9383;
+
     MockDriver driver;
-    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
+    UdpSocket<MockDriver, MockDriver::SOCKET_3, LOCAL_PORT> socket(driver);
 
     socket.close();
     CHECK(driver.close_called);
@@ -173,9 +177,11 @@ TEST_CASE("UdpSocket close forwards to driver")
 
 TEST_CASE("UdpSocket send reports success")
 {
+    constexpr static uint16_t LOCAL_PORT = 9384;
+
     MockDriver driver;
     driver.send_result = 10;
-    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
+    UdpSocket<MockDriver, MockDriver::SOCKET_3, LOCAL_PORT> socket(driver);
 
     Endpoint destination{};
     uint8_t data[10] = {};
@@ -187,9 +193,11 @@ TEST_CASE("UdpSocket send reports success")
 
 TEST_CASE("UdpSocket send reports failure")
 {
+    constexpr static uint16_t LOCAL_PORT = 9385;
+
     MockDriver driver;
     driver.send_result = -1;
-    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
+    UdpSocket<MockDriver, MockDriver::SOCKET_3, LOCAL_PORT> socket(driver);
 
     Endpoint destination{};
     uint8_t data[10] = {};
@@ -199,9 +207,11 @@ TEST_CASE("UdpSocket send reports failure")
 
 TEST_CASE("UdpSocket receive forwards driver result")
 {
+    constexpr static uint16_t LOCAL_PORT = 9386;
+
     MockDriver driver;
     driver.receive_result = 42;
-    UdpSocket<MockDriver> socket(driver, MockDriver::SOCKET_3);
+    UdpSocket<MockDriver, MockDriver::SOCKET_3, LOCAL_PORT> socket(driver);
 
     Endpoint source{};
     uint8_t buffer[100] = {};
@@ -213,10 +223,12 @@ TEST_CASE("UdpSocket receive forwards driver result")
 
 TEST_CASE("TcpSocket open forwards to driver")
 {
-    MockDriver driver;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    constexpr static uint16_t LOCAL_PORT = 8080;
 
-    CHECK(socket.open(8080));
+    MockDriver driver;
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
+
+    CHECK(socket.open());
     CHECK(driver.open_tcp_called);
     CHECK(driver.tcp_socket == MockDriver::SOCKET_2);
     CHECK(driver.tcp_port == 8080);
@@ -224,8 +236,10 @@ TEST_CASE("TcpSocket open forwards to driver")
 
 TEST_CASE("TcpSocket close forwards to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 8081;
+
     MockDriver driver;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     socket.close();
     CHECK(driver.close_tcp_called);
@@ -234,8 +248,10 @@ TEST_CASE("TcpSocket close forwards to driver")
 
 TEST_CASE("TcpSocket connectTo forwards destination to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 8082;
     MockDriver driver;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     Endpoint destination{IPv4Address{192, 168, 1, 100}, 443};
 
@@ -248,8 +264,10 @@ TEST_CASE("TcpSocket connectTo forwards destination to driver")
 
 TEST_CASE("TcpSocket disconnect forwards to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 8083;
+
     MockDriver driver;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     CHECK(socket.disconnect());
     CHECK(driver.disconnect_tcp_called);
@@ -258,8 +276,10 @@ TEST_CASE("TcpSocket disconnect forwards to driver")
 
 TEST_CASE("TcpSocket listen forwards to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 8084;
+
     MockDriver driver;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     CHECK(socket.listen());
     CHECK(driver.listen_tcp_called);
@@ -268,12 +288,14 @@ TEST_CASE("TcpSocket listen forwards to driver")
 
 TEST_CASE("TcpSocket status, rxAvailable, txAvailable forward to driver")
 {
+    constexpr static uint16_t LOCAL_PORT = 8085;
+
     MockDriver driver;
     driver.mock_status = 0x17; // e.g. SOCK_ESTABLISHED
     driver.mock_rx_available = 128;
     driver.mock_tx_available = 1024;
 
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     CHECK(socket.status() == 0x17);
     CHECK(socket.rxAvailable() == 128);
@@ -284,9 +306,11 @@ TEST_CASE("TcpSocket status, rxAvailable, txAvailable forward to driver")
 
 TEST_CASE("TcpSocket send forwards buffer and size")
 {
+    constexpr static uint16_t LOCAL_PORT = 8086;
+
     MockDriver driver;
     driver.send_tcp_result = 5;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     uint8_t data[5] = {1, 2, 3, 4, 5};
 
@@ -297,9 +321,11 @@ TEST_CASE("TcpSocket send forwards buffer and size")
 
 TEST_CASE("TcpSocket receive forwards buffer and size")
 {
+    constexpr static uint16_t LOCAL_PORT = 8087;
+
     MockDriver driver;
     driver.receive_tcp_result = 16;
-    TcpSocket<MockDriver> socket(driver, MockDriver::SOCKET_2);
+    TcpSocket<MockDriver, MockDriver::SOCKET_2, LOCAL_PORT> socket(driver);
 
     uint8_t buffer[32] = {};
 
