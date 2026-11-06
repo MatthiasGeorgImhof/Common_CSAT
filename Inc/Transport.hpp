@@ -397,7 +397,10 @@ public:
 
     void select() const 
     { 
-        config.cs_pin_.low(); 
+        config.cs_pin_.low();
+        __asm__ __volatile__("nop");
+        __asm__ __volatile__("nop");
+        __asm__ __volatile__("nop");
     }
     
     void deselect() const 

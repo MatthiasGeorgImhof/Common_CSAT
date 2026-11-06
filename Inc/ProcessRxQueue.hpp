@@ -3,6 +3,7 @@
 
 #include <tuple>
 #include <memory>
+#include <source_location>
 
 #include "cyphal.hpp"
 #include "canard_adapter.hpp"
@@ -143,6 +144,14 @@ public:
 			format_frame(line, sizeof(line), ext_id, size, data);
 //			format_frame(line, sizeof(line), reinterpret_cast<const uint8_t*>(&raw_frame), sizeof(raw_frame));
 			log(LOG_LEVEL_DEBUG, "LoopManager::ProcessRxQueue: %s\r\n", line);
+
+            if (size > sizeof(frame.payload))
+            {
+                log(LOG_LEVEL_ERROR, "LoopManager::ProcessRxQueue: : Received frame with size %u exceeds maximum allowed size of %u bytes\r\n",
+                		static_cast<unsigned int>(size), static_cast<unsigned int>(sizeof(frame.payload)));
+                HAL_Delay(500);
+                abort();
+            }
 
             CyphalTransfer transfer;
             int32_t result = cyphal->cyphalRxReceive(ext_id, &size, data, &transfer);

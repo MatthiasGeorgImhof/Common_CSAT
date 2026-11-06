@@ -38,13 +38,13 @@ protected:
     typename Driver::SOCKET_NUMBER socket_;
 };
 
-template<UdpSocketConcept Driver>
+template<UdpSocketConcept Driver, uint16_t Port = 0>
 class UdpSocket : public SocketBase<Driver>
 {
 public:
     UdpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
 
-    bool open(uint16_t local_port)
+    bool open(uint16_t local_port = Port)
     {
         return this->driver_.openUdp(this->socket_, local_port);
     }
@@ -65,13 +65,13 @@ public:
     }
 };
 
-template<TcpSocketConcept  Driver>
+template<TcpSocketConcept  Driver, uint16_t Port = 0>
 class TcpSocket : public SocketBase<Driver>
 {
 public:
     TcpSocket(Driver& driver, Driver::SOCKET_NUMBER socket_number) : SocketBase<Driver>(driver, socket_number) {}
 
-    bool open(uint16_t local_port)
+    bool open(uint16_t local_port = Port)
     {
         return this->driver_.openTcp(this->socket_, local_port);
     }

@@ -171,17 +171,33 @@ struct MockResetPin {
     void high() { g_mock.reset_pin_high_count++; }
 };
 
+struct MockConfig {
+    static constexpr uint16_t max_transfer_size = 512;
+};
+
 struct MockTransport {
+    using config_type = MockConfig;
     bool selected = false;
     std::vector<uint8_t> written_data;
 
     void select() { selected = true; }
     void deselect() { selected = false; }
+    
     void read_nocs(uint8_t* buffer, uint16_t length) {
         std::memset(buffer, 0xA5, length);
     }
+    
     void write_nocs(const uint8_t* buffer, uint16_t length) {
         written_data.insert(written_data.end(), buffer, buffer + length);
+    }
+    
+    void transfer_nocs(uint8_t* tx_buffer, uint8_t* rx_buffer, uint16_t length) {
+        if (tx_buffer) {
+            written_data.insert(written_data.end(), tx_buffer, tx_buffer + length);
+        }
+        if (rx_buffer) {
+            std::memset(rx_buffer, 0x5A, length);
+        }
     }
 };
 

@@ -321,12 +321,12 @@ public:
 
     static void wizchipReadBurst(uint8_t *buffer, uint16_t length)
     {
-    	active_->transport_.read_nocs(buffer, length);
+    	active_->transport_.transfer_nocs(const_cast<uint8_t*>(dummy_), buffer, length);
     }
 
     static void wizchipWriteBurst(uint8_t *buffer, uint16_t length)
     {
-    	active_->transport_.write_nocs(buffer, length);
+    	active_->transport_.transfer_nocs(buffer, const_cast<uint8_t*>(dummy_), length);
     }
 
     static void Callback_IPAssigned(void) {
@@ -355,5 +355,5 @@ private:
     ResetPin reset_pin_;
     static inline volatile bool ip_assigned_ = false;
     static inline W5500Driver *active_ = nullptr;
-
+    constexpr static uint8_t dummy_[Transport::config_type::max_transfer_size]{};
 };
