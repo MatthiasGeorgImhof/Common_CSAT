@@ -28,6 +28,12 @@ public:
         return available() > 0U;
     }
 
+    uint8_t status() const
+    {
+        return this->driver_.socketStatus(socket_number);
+    }
+
+
 protected:
     Driver& driver_;
 };
@@ -100,11 +106,6 @@ public:
     bool listen()
     {
         return this->driver_.listenTcp(socket_number);
-    }
-
-    uint8_t status() const
-    {
-        return this->driver_.socketStatus(socket_number);
     }
 
     uint16_t rxAvailable() const

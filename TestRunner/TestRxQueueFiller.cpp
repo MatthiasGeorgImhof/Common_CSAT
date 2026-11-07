@@ -25,7 +25,6 @@ struct MockSocket
 
     bool opened = false;
     bool closed = false;
-    uint16_t open_port = 0;
 
     uint16_t available() const
     {
@@ -39,16 +38,21 @@ struct MockSocket
         return total;
     }
 
-    bool open(uint16_t port)
+    bool open()
     {
         opened = true;
-        open_port = port;
         return true;
     }
 
     void close()
     {
         closed = true;
+    }
+
+    bool reopen()
+    {
+        close();
+        return open();
     }
 
     int32_t receive(uint8_t* data, uint16_t, Endpoint&)
@@ -153,7 +157,7 @@ TEST_CASE("UdpRxQueueFiller available underflow")
             return 4;
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             opened = true;
             return true;
@@ -162,6 +166,12 @@ TEST_CASE("UdpRxQueueFiller available underflow")
         void close()
         {
             closed = true;
+        }
+
+        bool reopen()
+        {
+            close();
+            return open();
         }
 
         int32_t receive(uint8_t*, uint16_t, Endpoint&)
@@ -195,7 +205,7 @@ TEST_CASE("UdpRxQueueFiller available overflow")
             return 65522;
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             opened = true;
             return true;
@@ -204,6 +214,12 @@ TEST_CASE("UdpRxQueueFiller available overflow")
         void close()
         {
             closed = true;
+        }
+
+        bool reopen()
+        {
+            close();
+            return open();
         }
 
         int32_t receive(uint8_t*, uint16_t, Endpoint&)
@@ -236,7 +252,7 @@ TEST_CASE("UdpRxQueueFiller receive error")
             return consumed ? 0 : 64;
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             return true;
         }
@@ -245,7 +261,13 @@ TEST_CASE("UdpRxQueueFiller receive error")
         {
         }
 
-        int32_t receive(uint8_t*, uint16_t, Endpoint&)
+        bool reopen()
+        {
+            close();
+            return open();
+        }
+
+    int32_t receive(uint8_t*, uint16_t, Endpoint&)
         {
             consumed = true;
             return -1;
@@ -275,7 +297,7 @@ TEST_CASE("UdpRxQueueFiller fifo desync")
             return consumed ? 0 : 32;
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             opened = true;
             return true;
@@ -284,6 +306,12 @@ TEST_CASE("UdpRxQueueFiller fifo desync")
         void close()
         {
             closed = true;
+        }
+
+        bool reopen()
+        {
+            close();
+            return open();
         }
 
         int32_t receive(uint8_t* data, uint16_t, Endpoint&)
@@ -324,7 +352,7 @@ TEST_CASE("UdpRxQueueFiller oversized packet")
                 : static_cast<uint16_t>(sizeof(Frame) + 32);
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             return true;
         }
@@ -333,6 +361,12 @@ TEST_CASE("UdpRxQueueFiller oversized packet")
         {
         }
 
+        bool reopen()
+        {
+            close();
+            return open();
+        }
+       
         int32_t receive(uint8_t* data, uint16_t, Endpoint&)
         {
             Frame frame{};
@@ -367,7 +401,7 @@ TEST_CASE("UdpRxQueueFiller oversized packet")
                 : static_cast<uint16_t>(sizeof(Frame) + 32);
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             return true;
         }
@@ -376,7 +410,13 @@ TEST_CASE("UdpRxQueueFiller oversized packet")
         {
         }
 
-        int32_t receive(uint8_t* data, uint16_t, Endpoint&)
+        bool reopen()
+        {
+            close();
+            return open();
+        }
+       
+       int32_t receive(uint8_t* data, uint16_t, Endpoint&)
         {
             Frame frame{};
             frame.size = 1;
@@ -410,7 +450,7 @@ TEST_CASE("UdpRxQueueFiller frame size mismatch")
             return consumed ? 0 : 64;
         }
 
-        bool open(uint16_t)
+        bool open()
         {
             return true;
         }
@@ -419,6 +459,12 @@ TEST_CASE("UdpRxQueueFiller frame size mismatch")
         {
         }
 
+        bool reopen()
+        {
+            close();
+            return open();
+        }
+       
         int32_t receive(uint8_t* data, uint16_t, Endpoint&)
         {
             Frame frame{};

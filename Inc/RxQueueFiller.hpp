@@ -22,7 +22,8 @@ public:
             if (available > 2048 || available < 8)
             {
                 log(LOG_LEVEL_ERROR, "UdpRxQueueFiller: hardware pointer underflow (%u), resetting socket\r\n", available);
-                socket_->reopen();
+                bool ok = socket_->reopen();
+                log(LOG_LEVEL_INFO, "UdpRxQueueFiller: socket reopened: %s\r\n", ok ? "yes" : "no");
                 break;
             }
 
@@ -43,7 +44,8 @@ public:
             if ((len + 8) > available)
             {
                 log(LOG_LEVEL_ERROR, "UdpRxQueueFiller: packet len (%d + 8) > available (%d), desync detected!\r\n", len, available);
-                socket_->reopen();
+                bool ok = socket_->reopen();
+                log(LOG_LEVEL_INFO, "UdpRxQueueFiller: socket reopened: %s\r\n", ok ? "yes" : "no");
                 break;
             }
 

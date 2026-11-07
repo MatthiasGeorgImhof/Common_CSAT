@@ -12,6 +12,7 @@
 
 #include "Serialization.hpp"
 #include "Socket.hpp"
+#include "Logger.hpp"
 
 //
 // drain to rx buffer
@@ -189,8 +190,9 @@ void UdpTxQueueDrainer<UdpSocket, destination, MTU>::drain()
         canardTxPop(&adapter_->que, ti);
         PlainFramer<MTU> framer;
         auto data_frame = framer.serialize(ti->frame);
-        socket_->send(reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), destination);
-
+        bool ok = socket_->send( reinterpret_cast<uint8_t*>(&data_frame), sizeof(data_frame), destination);
+        log(LOG_LEVEL_DEBUG, "UdpTxQueueDrainer::drain: send %d bytes status=%d result=%d\r\n", sizeof(data_frame), socket_->status(), ok);
+        
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }
 }
