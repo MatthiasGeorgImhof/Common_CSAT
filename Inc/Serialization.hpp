@@ -18,6 +18,7 @@ constexpr size_t serialized_size(const HeaderFrame<N>& frame)
 }
 
 static_assert(sizeof(HeaderFrame<8>) == 14, "HeaderFrame<8> should be 14 bytes");
+static_assert(serialized_size<8>(HeaderFrame<8>{}) == 6, "HeaderFrame<8>{} should be 6 bytes");
 
 template <size_t N>
 struct __attribute__((packed)) COBSHeaderFrame
@@ -30,7 +31,15 @@ struct __attribute__((packed)) COBSHeaderFrame
     HeaderFrame<N> header_frame;
     uint8_t end_of_frame = 0x00;
 };
+
+template<size_t N>
+constexpr size_t serialized_size(const COBSHeaderFrame<N>& frame)
+{
+    return offsetof(COBSHeaderFrame<N>, header_frame.payload) + frame.header_frame.size + 1;
+}
+
 static_assert(sizeof(COBSHeaderFrame<8>) == 17, "COBSHeaderFrame<8> should be 17 bytes");
+static_assert(serialized_size<8>(COBSHeaderFrame<8>{}) == 9, "COBSHeaderFrame<8>{} should be 9 bytes");
 
 
 template <size_t N>
