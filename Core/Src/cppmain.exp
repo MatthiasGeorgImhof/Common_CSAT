@@ -1,0 +1,282 @@
+// AUX
+
+#include <cppmain.h>
+#include <cpphal.h>
+#include "usb_device.h"
+
+#include <memory>
+
+#include "stdio.h"
+#include "stdint.h"
+#include "string.h"
+#include "usbd_cdc_if.h"
+
+#include <cppmain.h>
+
+#include "o1heap.h"
+#include "serard.h"
+
+#include "cyphal.hpp"
+#include "serard_adapter.hpp"
+#include "loopard_adapter.hpp"
+
+#ifndef NUNAVUT_ASSERT
+#define NUNAVUT_ASSERT(x) assert(x)
+#endif
+
+#include "cyphal_subscriptions.hpp"
+#include <CircularBuffer.hpp>
+#include <ArrayList.hpp>
+#include "HeapAllocation.hpp"
+#include "RegistrationManager.hpp"
+#include "SubscriptionManager.hpp"
+#include "ServiceManager.hpp"
+#include "ProcessRxQueue.hpp"
+#include "TaskCheckMemory.hpp"
+#include "TaskBlinkLED.hpp"
+#include "TaskSendHeartBeat.hpp"
+#include "TaskProcessHeartBeat.hpp"
+#include "TaskSendNodePortList.hpp"
+#include "TaskSubscribeNodePortList.hpp"
+#include "TaskRespondGetInfo.hpp"
+#include "TaskRequestGetInfo.hpp"
+
+#include "TrivialImageBuffer.hpp"
+#include "TaskSyntheticImageGenerator.hpp"
+#include "Trigger.hpp"
+#include "InputOutputStream.hpp"
+#include "TaskRequestWrite.hpp"
+
+#include "CC1101.hpp"
+#include "CC1101Manager.hpp"
+
+#include "Logger.hpp"
+#include "MessageAccumulator.hpp"
+#include "FrameAssembler.hpp"
+
+SerardAdapter serard_adapter;
+SerardAdapter radio_adapter;
+LoopardAdapter loopard_adapter;
+
+#ifndef CYPHAL_NODE_ID
+#define CYPHAL_NODE_ID 41
+#endif
+
+constexpr CyphalNodeID cyphal_node_id = CYPHAL_NODE_ID;
+
+using LocalHeap = HeapAllocation<65536>;
+
+//// Global radio definitions
+//constexpr size_t RADIO_TX_BUFFER_SIZE = 128;
+//using RadioTxCircularBuffer = CircularBuffer<CC1101Packet, RADIO_TX_BUFFER_SIZE>;
+//RadioTxCircularBuffer radio_tx_buffer;
+//
+//constexpr size_t RADIO_RX_BUFFER_SIZE = RADIO_TX_BUFFER_SIZE;
+//using RadioRxCircularBuffer = CircularBuffer<CC1101Packet, RADIO_RX_BUFFER_SIZE>;
+//RadioRxCircularBuffer radio_rx_buffer;
+//
+//using RadioConfig = SPI_Register_Config<hspi1, SPI1_CS_Pin, 64, 100>;
+//RadioConfig radio_config(GPIOA);
+//using RadioTransport = SPIRegisterTransport<RadioConfig>;
+//RadioTransport radio_transport(radio_config);
+//using CC1101_CS = GpioPin<GPIOA_BASE, SPI1_CS_Pin>;
+//using CC1101_MISO = GpioPin<GPIOA_BASE, SPI1_MISO_Pin>;
+//using CC1101_GDO2 = GpioPin<GPIOB_BASE, GD2_Pin>;
+//using Radio = CC1101<RadioTransport, CC1101_CS, CC1101_MISO>;
+//Radio radio(radio_transport, CC1101_CS{}, CC1101_MISO{});
+//
+//using RadioManager = CC1101Manager<Radio, RadioTxCircularBuffer, RadioRxCircularBuffer, CC1101_GDO2>;
+//RadioManager radio_manager(radio, radio_tx_buffer, radio_rx_buffer, CC1101_GDO2{});
+//
+//constexpr size_t RADIO_BUFFER_SIZE = 16;
+//using RadioCircularBuffer = CircularBuffer<SerialFrame, RADIO_BUFFER_SIZE>;
+//RadioCircularBuffer radio_buffer;
+
+constexpr uint32_t SERIAL_TIMEOUT = 1000;
+constexpr size_t SERIAL_BUFFER_SIZE = 16;
+using SerialCircularBuffer = CircularBuffer<SerialFrame, SERIAL_BUFFER_SIZE>;
+SerialCircularBuffer serial_buffer;
+
+//void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t pos)
+//{
+//	if (huart->Instance == USART2)
+//	{
+//		// Finalize in-flight slot
+//		SerialFrame &slot = serial_buffer.begin_write();
+//		slot.size = pos;
+//		serial_buffer.commit_write();
+//
+//		// Reserve next slot for DMA
+//		SerialFrame &next_slot = serial_buffer.begin_write();
+//		HAL_UARTEx_ReceiveToIdle_DMA(huart, next_slot.data, SERIAL_MTU);
+//		HAL_GPIO_TogglePin(GPIOC, LED_Pin);
+//	}
+//}
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+//	bool radio_emit(void * /*user_ref*/, size_t data_size, const uint8_t *data)
+//	{
+//		constexpr uint16_t FRAGMENT_SIZE = 51;
+//		size_t pos = 0;
+//		while (pos < data_size)
+//		{
+//			size_t chunk = std::min<size_t>(FRAGMENT_SIZE, data_size - pos);
+//			CC1101Packet &packet = radio_tx_buffer.begin_write();
+//			CC1101PacketView view(packet.data());
+//			view.set_len(chunk);
+//			memcpy(view.payload(), &data[pos], chunk);
+//			radio_tx_buffer.commit_write();
+//			pos += chunk;
+//		}
+//		return true;
+//	}
+
+	bool uart_emit(void * /*user_ref*/, size_t data_size, const uint8_t *data)
+	{
+		HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, data, data_size, 1000);
+		return status == HAL_OK;
+	}
+
+	bool uart_accumulate(void *user_reference, uint8_t data_size, const uint8_t *data)
+	{
+		static MessageAccumulator<255> accumulator(user_reference, uart_emit);
+
+		for (uint8_t i = 0; i < data_size; i++)
+		{
+			accumulator.process(data[i]);
+		}
+		return true;
+	}
+
+//	bool radio_accumulate(void *user_reference, uint8_t data_size, const uint8_t *data)
+//	{
+//		// Debug log
+//		//    {
+//		//        char out[256];
+//		//        uchar_buffer_to_hex(reinterpret_cast<const unsigned char*>(data),
+//		//                            data_size, out, sizeof(out));
+//		//        log(LOG_LEVEL_DEBUG, "radio_send %u: %s\r\n", data_size, out);
+//		//    }
+//
+//		static MessageAccumulator<51> accumulator(user_reference, radio_emit);
+//
+//		for (uint8_t i = 0; i < data_size; i++)
+//		{
+//			accumulator.process(data[i]);
+//		}
+//
+//		return true;
+//	}
+#ifdef __cplusplus
+}
+#endif
+
+template <typename T, typename... Args>
+static void register_task_with_heap(RegistrationManager &rm, Args &&...args)
+{
+	static SafeAllocator<T, LocalHeap> alloc;
+    rm.add(alloc_unique_custom<T, LocalHeap>(alloc, std::forward<Args>(args)...));}
+
+void cppmain()
+{
+	LocalHeap::initialize();
+
+//	using LoopardCyphal = Cyphal<LoopardAdapter>;
+//	loopard_adapter.memory_allocate = LocalHeap::loopardMemoryAllocate;
+//	loopard_adapter.memory_free = LocalHeap::loopardMemoryDeallocate;
+//	LoopardCyphal loopard_cyphal(&loopard_adapter);
+//	loopard_cyphal.setNodeID(cyphal_node_id);
+
+	using SerardCyphal = Cyphal<SerardAdapter>;
+	struct SerardMemoryResource serard_memory_resource = {&serard_adapter.ins, LocalHeap::serardMemoryAllocate, LocalHeap::serardMemoryDeallocate};
+	serard_adapter.ins = serardInit(serard_memory_resource, serard_memory_resource);
+	serard_adapter.reass = serardReassemblerInit();
+	serard_adapter.emitter = uart_accumulate;
+	SerardCyphal serard_cyphal(&serard_adapter);
+	serard_cyphal.setNodeID(cyphal_node_id);
+
+//	struct SerardMemoryResource radio_memory_resource = {&radio_adapter.ins, LocalHeap::serardMemoryAllocate, LocalHeap::serardMemoryDeallocate};
+//	radio_adapter.ins = serardInit(radio_memory_resource, radio_memory_resource);
+//	radio_adapter.reass = serardReassemblerInit();
+//	radio_adapter.emitter = radio_accumulate;
+//	SerardCyphal radio_cyphal(&radio_adapter);
+//	radio_cyphal.setNodeID(cyphal_node_id);
+
+	std::tuple<Cyphal<SerardAdapter>> serard_adapters = {serard_cyphal};
+//	std::tuple<Cyphal<SerardAdapter>> radio_adapters = {radio_cyphal};
+//	std::tuple<Cyphal<SerardAdapter>, Cyphal<SerardAdapter>> serrad_adapters = {serard_cyphal, radio_cyphal};
+	std::tuple<> empty_adapters = {};
+
+	SerialFrame &slot = serial_buffer.begin_write();
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, slot.data, SERIAL_MTU);
+
+	RegistrationManager registration_manager;
+	SubscriptionManager subscription_manager;
+
+	LoopManager<LocalHeap> loop_manager;
+	O1HeapInstance *o1heap = LocalHeap::getO1Heap();
+
+	HAL_Delay(5000);
+
+	constexpr uint8_t uuid[] = {0xc8, 0x03, 0x52, 0xa6, 0x1d, 0x94, 0x40, 0xc9, 0x9b, 0x1d, 0xea, 0xac, 0xfd, 0xdd, 0xb2, 0x85};
+	constexpr char node_name[50] = "TESTF411_CSAT";
+
+//	using TSHeart = TaskSendHeartBeat<SerardCyphal>;
+//	register_task_with_heap<TSHeart>(registration_manager, 2000, 100, 0, serard_adapters);
+
+	using TPHeart = TaskProcessHeartBeat<SerardCyphal>;
+	register_task_with_heap<TPHeart>(registration_manager, 500, 100, serard_adapters);
+
+//	using TRespondInfo = TaskRespondGetInfo<SerardCyphal >;
+//	register_task_with_heap<TRespondInfo>(registration_manager, uuid, node_name, 10000, 100, serard_adapters);
+
+	//	using TRequestInfoSerard = TaskRequestGetInfo<SerardCyphal >;
+	//	register_task_with_heap<TRequestInfoSerard>(registration_manager, 10000, 800, 121, 0, serard_adapters);
+
+//	using TBlink = TaskBlinkLED;
+//	register_task_with_heap<TBlink>(registration_manager, GPIOC, LED_Pin, 1000, 100);
+
+	using TCheckMem = TaskCheckMemory;
+	register_task_with_heap<TCheckMem>(registration_manager, o1heap, 500, 100);
+
+	subscription_manager.subscribeAll(registration_manager, serard_adapters);
+//	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_), serard_adapters);
+//	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_node_port_List_1_0_FIXED_PORT_ID_), serard_adapters);
+//	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_diagnostic_Record_1_1_FIXED_PORT_ID_), serard_adapters);
+//
+//	subscription_manager.subscribe<SubscriptionManager::RequestTag>(static_cast<CyphalPortID>(uavcan_node_GetInfo_1_0_FIXED_PORT_ID_), serard_adapters);
+	//	subscription_manager.subscribe<SubscriptionManager::RequestTag>(static_cast<CyphalPortID>(uavcan_file_Write_1_1_FIXED_PORT_ID_), serard_adapters);
+	//	subscription_manager.subscribe<SubscriptionManager::RequestTag>(static_cast<CyphalPortID>(uavcan_file_Read_1_1_FIXED_PORT_ID_), serard_adapters);
+	//
+	//	subscription_manager.subscribe<SubscriptionManager::ResponseTag>(static_cast<CyphalPortID>(uavcan_node_GetInfo_1_0_FIXED_PORT_ID_), serard_adapters);
+	//	subscription_manager.subscribe<SubscriptionManager::ResponseTag>(static_cast<CyphalPortID>(uavcan_file_Write_1_1_FIXED_PORT_ID_), serard_adapters);
+	//	subscription_manager.subscribe<SubscriptionManager::ResponseTag>(static_cast<CyphalPortID>(uavcan_file_Read_1_1_FIXED_PORT_ID_), serard_adapters);
+
+	ServiceManager service_manager(registration_manager.getHandlers());
+	service_manager.initializeServices(HAL_GetTick());
+
+//	FrameAssembler<RadioRxCircularBuffer, RadioCircularBuffer> radio_assembler(radio_rx_buffer, radio_buffer);
+
+	while (1)
+	{
+		HAL_Delay(1000);
+		static uint8_t hb_frame[] =
+		 {
+			 0x00, 0x04, 0x01, 0x04, 0x79, 0x06, 0xff, 0xff, 0x55, 0x1d, 0x17, 0x01,
+			 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x80, 0x01, 0x04,
+			 0x0e, 0x10, 0x17, 0x01, 0x01, 0x01, 0x01, 0x01, 0x05, 0x42, 0x20, 0x80,
+			 0x3a, 0x00};
+
+		 SerialFrame frame;
+		 frame.size = sizeof(hb_frame);
+		 memcpy(frame.data, hb_frame, sizeof(hb_frame));
+		 serial_buffer.push(frame);
+
+		 loop_manager.ProcessRxQueue(&serard_cyphal, &service_manager, empty_adapters, serial_buffer);
+		 service_manager.handleServices();
+
+	}
+}

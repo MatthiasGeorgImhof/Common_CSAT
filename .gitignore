@@ -1,0 +1,10 @@
+# Eclipse
+.metadata
+.settings
+[Rr]elease
+[Dd]ebug
+.launch
+USB_DEVICE
+*.bak
+*.bak?
+TestRunner/bin
