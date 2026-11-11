@@ -2,7 +2,7 @@
 #include "doctest.h"
 
 #include "Mram.hpp"
-#include "TaskNram.hpp"
+#include "TaskMram.hpp"
 #include "RamMramMock.hpp"
 
 struct mram_config_t  { uint32_t a; };
@@ -86,13 +86,13 @@ struct MockTransfer : public CyphalTransfer
 };
 
 template <typename Transport, typename Layout, typename... Adapters>
-class MockTaskNram : public TaskNram<Transport, Layout, Adapters...>
+class MockTaskMram : public TaskMram<Transport, Layout, Adapters...>
 {
-    using Base    = TaskNram<Transport, Layout, Adapters...>;
+    using Base    = TaskMram<Transport, Layout, Adapters...>;
     using Backend = typename Base::Backend;
 
 public:
-    MockTaskNram(Backend& backend,
+    MockTaskMram(Backend& backend,
                  uint32_t interval,
                  uint32_t tick,
                  std::tuple<Adapters...>& adapters)
@@ -160,7 +160,7 @@ TEST_CASE("RamMramMock read/write works")
     CHECK(r[3] == 4);
 }
 
-TEST_CASE("TaskNram handles file Write and Read correctly")
+TEST_CASE("TaskMram handles file Write and Read correctly")
 {
     // --------------------------
     // Setup
@@ -169,7 +169,7 @@ TEST_CASE("TaskNram handles file Write and Read correctly")
     MramBackend<RamMramMock<2048>> backend(mock);
 
     std::tuple<> adapters;
-    MockTaskNram<RamMramMock<2048>, MramLayout> task(backend, 0, 0, adapters);
+    MockTaskMram<RamMramMock<2048>, MramLayout> task(backend, 0, 0, adapters);
 
     // --------------------------
     // 1. Construct a Write request

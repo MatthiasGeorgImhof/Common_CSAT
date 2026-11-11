@@ -1,5 +1,5 @@
-#ifndef __TASKNRAM_HPP_
-#define __TASKNRAM_HPP_
+#ifndef __TASKMRAM_HPP_
+#define __TASKMRAM_HPP_
 
 #include "Task.hpp"
 #include "RegistrationManager.hpp"
@@ -58,17 +58,17 @@ template <typename Layout>
 std::optional<uint32_t> mram_lookup_offset(std::string_view name);
 
 // -----------------------------------------------------------------------------
-// TaskNram: Cyphal file server backed by MRAM
+// TaskMram: Cyphal file server backed by MRAM
 // -----------------------------------------------------------------------------
 template <typename Transport, typename Layout, typename... Adapters>
-class TaskNram : public TaskForServer<CyphalBuffer8, Adapters...>
+class TaskMram : public TaskForServer<CyphalBuffer8, Adapters...>
 {
 public:
 	using Backend = MramBackend<Transport>;
 
-	TaskNram() = delete;
+	TaskMram() = delete;
 
-	TaskNram(Backend &backend,
+	TaskMram(Backend &backend,
 			 uint32_t interval,
 			 uint32_t tick,
 			 std::tuple<Adapters...> &adapters)
@@ -95,7 +95,7 @@ public:
 		auto &buf = TaskForServer<CyphalBuffer8, Adapters...>::buffer_;
 		if (buf.is_empty())
 		{
-			log(LOG_LEVEL_TRACE, "TaskNram: empty buffer\r\n");
+			log(LOG_LEVEL_TRACE, "TaskMram: empty buffer\r\n");
 			return;
 		}
 
@@ -116,7 +116,7 @@ public:
 				break;
 			default:
 				log(LOG_LEVEL_WARNING,
-					"TaskNram: unknown port id %d\r\n",
+					"TaskMram: unknown port id %d\r\n",
 					transfer->metadata.port_id);
 				break;
 			}
@@ -145,7 +145,7 @@ protected:
 
 		if (deser < 0)
 		{
-			log(LOG_LEVEL_ERROR, "TaskNram: Write deserialization error\r\n");
+			log(LOG_LEVEL_ERROR, "TaskMram: Write deserialization error\r\n");
 			response._error.value = uavcan_file_Error_1_0_IO_ERROR;
 		}
 		else
@@ -159,7 +159,7 @@ protected:
 			if (!off)
 			{
 				log(LOG_LEVEL_WARNING,
-					"TaskNram: Write unknown path '%.*s'\r\n",
+					"TaskMram: Write unknown path '%.*s'\r\n",
 					int(path.size()), path.data());
 				response._error.value = uavcan_file_Error_1_0_NOT_FOUND;
 			}
@@ -185,7 +185,7 @@ protected:
 			reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_file_Write_Response_1_1_serialize_),
 			uavcan_file_Write_1_1_FIXED_PORT_ID_, transfer.metadata.remote_node_id, transfer.metadata.transfer_id);
 
-		log(LOG_LEVEL_INFO, "TaskNram: Write response sent\r\n");
+		log(LOG_LEVEL_INFO, "TaskMram: Write response sent\r\n");
 	}
 
 	// -------------------------------------------------------------------------
@@ -206,7 +206,7 @@ protected:
 
 		if (deser < 0)
 		{
-			log(LOG_LEVEL_ERROR, "TaskNram: Read deserialization error\r\n");
+			log(LOG_LEVEL_ERROR, "TaskMram: Read deserialization error\r\n");
 			response._error.value = uavcan_file_Error_1_0_IO_ERROR;
 		}
 		else
@@ -220,7 +220,7 @@ protected:
 			if (!off)
 			{
 				log(LOG_LEVEL_WARNING,
-					"TaskNram: Read unknown path '%.*s'\r\n",
+					"TaskMram: Read unknown path '%.*s'\r\n",
 					int(path.size()), path.data());
 				response._error.value = uavcan_file_Error_1_0_NOT_FOUND;
 			}
@@ -234,7 +234,7 @@ protected:
 				response.data.value.count = ok ? bytes_to_read : 0U;
 
 				log(LOG_LEVEL_DEBUG,
-					"TaskNram: Read path '%.*s', offset %u, size %zu\r\n",
+					"TaskMram: Read path '%.*s', offset %u, size %zu\r\n",
 					int(path.size()), path.data(),
 					static_cast<unsigned>(request.offset),
 					response.data.value.count);
@@ -249,8 +249,8 @@ protected:
 			reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_file_Read_Response_1_1_serialize_),
 			uavcan_file_Read_1_1_FIXED_PORT_ID_, transfer.metadata.remote_node_id, transfer.metadata.transfer_id);
 
-		log(LOG_LEVEL_INFO, "TaskNram: Read response sent\r\n");
+		log(LOG_LEVEL_INFO, "TaskMram: Read response sent\r\n");
 	}
 };
 
-#endif // __TASKNRAM_HPP_
+#endif // __TASKMRAM_HPP_

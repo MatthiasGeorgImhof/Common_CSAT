@@ -42,11 +42,11 @@ private:
     std::uint8_t* base_; // pointer to MRAM memory-mapped region or driver buffer
 };
 
-template <typename Layout, typename NramTransport>
+template <typename Layout, typename MramTransport>
 class MramChipFileAccess
 {
 public:
-    explicit MramChipFileAccess(const NramTransport& chip) : chip_(chip) {}
+    explicit MramChipFileAccess(const MramTransport& chip) : chip_(chip) {}
 
     bool read(const FileName& path_array,
               std::size_t offset,
@@ -76,7 +76,7 @@ public:
     }
 
 private:
-    const NramTransport& chip_;
+    const MramTransport& chip_;
 };
 
 #endif // __MRAM_FILE_ACCESS_H__
