@@ -1,14 +1,25 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <array>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+
 #include "Mram.hpp"
 #include "MramFileAccess.hpp"
+#include "MramStorageBackend.hpp"
+#include "MramStore.hpp"
+#include "MramWriteStream.hpp"
+#include "RamBufferBackend.hpp"
+#include "RamMramMock.hpp"
 
 // ------------------------------------------------------------
 // Dummy payload types
 // ------------------------------------------------------------
-struct mram_config_t  { uint8_t a[4]; };
-struct mram_state_t   { uint8_t b[8]; };
+struct mram_config_t { std::uint8_t a[4]; };
+struct mram_state_t  { std::uint8_t b[8]; };
 
 // ------------------------------------------------------------
 // Mission-specific layout
@@ -37,20 +48,58 @@ struct MramLayoutMembers<MramLayout>
 template <>
 struct MramTraits<mram_config_t, MramLayout>
 {
-    static constexpr uint32_t offset  = offsetof(MramLayout, config);
-    static constexpr uint32_t version = 1;
-    static constexpr size_t   index   = 0;
-    static constexpr const char* name = "config";
+    static constexpr std::uint32_t offset  = offsetof(MramLayout, config);
+    static constexpr std::uint32_t version = 1;
+    static constexpr std::size_t   index   = 0;
+    static constexpr const char*   name    = "config";
 };
 
 template <>
 struct MramTraits<mram_state_t, MramLayout>
 {
-    static constexpr uint32_t offset  = offsetof(MramLayout, state);
-    static constexpr uint32_t version = 1;
-    static constexpr size_t   index   = 1;
-    static constexpr const char* name = "state";
+    static constexpr std::uint32_t offset  = offsetof(MramLayout, state);
+    static constexpr std::uint32_t version = 2;
+    static constexpr std::size_t   index   = 1;
+    static constexpr const char*   name    = "state";
 };
+
+// ------------------------------------------------------------
+// Failing backend for error-propagation tests
+// ------------------------------------------------------------
+class FailingFileAccessBackend
+{
+public:
+    bool fail_read = false;
+    std::array<std::uint8_t, sizeof(MramLayout)> storage{};
+
+    FailingFileAccessBackend() { storage.fill(0xFF); }
+
+    bool readRecord(const MramRegistryEntry& entry,
+                    std::size_t offset,
+                    std::uint8_t* dst,
+                    std::size_t len) const
+    {
+        if (fail_read || !mram_validate_range(entry, offset, len))
+            return false;
+        if (len > 0)
+            std::memcpy(dst, storage.data() + entry.offset + offset, len);
+        return true;
+    }
+
+    bool writeRecord(const MramRegistryEntry& entry,
+                     std::size_t offset,
+                     const std::uint8_t* src,
+                     std::size_t len)
+    {
+        if (!mram_validate_range(entry, offset, len))
+            return false;
+        if (len > 0)
+            std::memcpy(storage.data() + entry.offset + offset, src, len);
+        return true;
+    }
+};
+
+static_assert(MramStorageBackend<FailingFileAccessBackend>);
 
 // ------------------------------------------------------------
 // Helper: convert string to NAME_LENGTH array
@@ -63,128 +112,201 @@ FileName makePath(const char* s)
 }
 
 // ------------------------------------------------------------
-// Tests for RAM-backed MramFileAccess
+// RawRecord mode tests (RamBufferBackend & RamMockBackend)
 // ------------------------------------------------------------
-TEST_CASE("MramFileAccess: full read of config record (raw record bytes)")
+TEST_CASE("MramFileAccess (RamBufferBackend, RawRecord): full and partial reads")
 {
-    std::uint8_t buffer[sizeof(MramLayout)]{};
-    auto* layout = reinterpret_cast<MramLayout*>(buffer);
+    std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
+    auto* layout = reinterpret_cast<MramLayout*>(buffer.data());
 
-    // Fill entire record (header + payload) with a known pattern
-    auto* rec_bytes = reinterpret_cast<uint8_t*>(&layout->config);
+    auto* cfg_bytes = reinterpret_cast<std::uint8_t*>(&layout->config);
     for (std::size_t i = 0; i < sizeof(MramRecord<mram_config_t>); ++i)
-        rec_bytes[i] = static_cast<uint8_t>(0x10 + i);
+        cfg_bytes[i] = static_cast<std::uint8_t>(0x10 + i);
 
-    MramFileAccess access(buffer);
-
-    std::uint8_t out[32]{};
-    std::size_t size = sizeof(out);
-
-    bool ok = access.read<MramLayout>(makePath("config"), 0, out, size);
-
-    CHECK(ok == true);
-    CHECK(size == sizeof(MramRecord<mram_config_t>));
-    CHECK(out[0] == 0x10);
-    CHECK(out[1] == 0x11);
-    CHECK(out[sizeof(MramRecord<mram_config_t>) - 1] ==
-          static_cast<uint8_t>(0x10 + sizeof(MramRecord<mram_config_t>) - 1));
-}
-
-TEST_CASE("MramFileAccess: partial read with offset inside record")
-{
-    std::uint8_t buffer[sizeof(MramLayout)]{};
-    auto* layout = reinterpret_cast<MramLayout*>(buffer);
-
-    auto* rec_bytes = reinterpret_cast<uint8_t*>(&layout->state);
+    auto* st_bytes = reinterpret_cast<std::uint8_t*>(&layout->state);
     for (std::size_t i = 0; i < sizeof(MramRecord<mram_state_t>); ++i)
-        rec_bytes[i] = static_cast<uint8_t>(0x20 + i);
+        st_bytes[i] = static_cast<std::uint8_t>(0x50 + i);
 
-    MramFileAccess access(buffer);
+    RamBufferBackend backend(buffer.data(), buffer.size());
+    MramFileAccess<MramLayout, RamBufferBackend> access(backend, MramFileMode::RawRecord);
 
-    std::uint8_t out[4]{};
-    std::size_t size = sizeof(out);
-
-    std::size_t offset = 5; // somewhere in the record
-    bool ok = access.read<MramLayout>(makePath("state"), offset, out, size);
-
-    CHECK(ok == true);
-    CHECK(size == 4);
-    CHECK(out[0] == static_cast<uint8_t>(0x20 + offset));
-    CHECK(out[1] == static_cast<uint8_t>(0x20 + offset + 1));
-}
-
-TEST_CASE("MramFileAccess: offset beyond end returns EOF")
-{
-    std::uint8_t buffer[sizeof(MramLayout)]{};
-    MramFileAccess access(buffer);
-
-    std::uint8_t out[4]{};
-    std::size_t size = sizeof(out);
-
-    bool ok = access.read<MramLayout>(makePath("config"),
-                                      sizeof(MramRecord<mram_config_t>) + 10,
-                                      out, size);
-
-    CHECK(ok == true);   // EOF is not an error
-    CHECK(size == 0);
-}
-
-TEST_CASE("MramFileAccess: missing file returns false")
-{
-    std::uint8_t buffer[sizeof(MramLayout)]{};
-    MramFileAccess access(buffer);
-
-    std::uint8_t out[4]{};
-    std::size_t size = sizeof(out);
-
-    bool ok = access.read<MramLayout>(makePath("does_not_exist"), 0, out, size);
-
-    CHECK(ok == false);
-    CHECK(size == 0);
-}
-
-// ------------------------------------------------------------
-// Mock transport for chip-backed access
-// ------------------------------------------------------------
-class MockTransport
-{
-public:
-    mutable bool     readBytes_called = false;
-    mutable uint32_t last_addr        = 0;
-    mutable uint16_t last_len         = 0;
-
-    bool readBytes(uint32_t addr, void* buf, uint16_t len) const
+    SUBCASE("Full read")
     {
-        readBytes_called = true;
-        last_addr = addr;
-        last_len  = len;
+        std::uint8_t out[32]{};
+        std::size_t size = sizeof(out);
 
-        auto* p = static_cast<uint8_t*>(buf);
-        for (uint16_t i = 0; i < len; ++i)
-            p[i] = 0xCC;
-
-        return true;
+        REQUIRE(access.read(makePath("config"), 0, out, size) == true);
+        CHECK(size == sizeof(MramRecord<mram_config_t>));
+        CHECK(out[0] == 0x10);
+        CHECK(out[size - 1] == static_cast<std::uint8_t>(0x10 + size - 1));
     }
-};
 
-// ------------------------------------------------------------
-// Tests for chip-backed MramChipFileAccess
-// ------------------------------------------------------------
-TEST_CASE("MramChipFileAccess: read calls transport with correct address")
+    SUBCASE("Partial read at non-zero offset")
+    {
+        std::uint8_t out[4]{};
+        std::size_t size = sizeof(out);
+        const std::size_t offset = 5;
+
+        REQUIRE(access.read(makePath("state"), offset, out, size) == true);
+        CHECK(size == 4);
+        CHECK(out[0] == static_cast<std::uint8_t>(0x50 + offset));
+        CHECK(out[3] == static_cast<std::uint8_t>(0x50 + offset + 3));
+    }
+
+    SUBCASE("Tail read clamped to remaining record bytes")
+    {
+        std::uint8_t out[16]{};
+        std::size_t size = sizeof(out);
+        const std::size_t offset = sizeof(MramRecord<mram_config_t>) - 3;
+
+        REQUIRE(access.read(makePath("config"), offset, out, size) == true);
+        CHECK(size == 3);
+        CHECK(out[0] == static_cast<std::uint8_t>(0x10 + offset));
+        CHECK(out[2] == static_cast<std::uint8_t>(0x10 + offset + 2));
+    }
+}
+
+TEST_CASE("MramFileAccess (RamMockBackend, RawRecord): EOF, missing file, and edge cases")
 {
-    MockTransport mock;
-    MramChipFileAccess<MramLayout, MockTransport> access(mock);
+    RamMramMock<sizeof(MramLayout)> mock;
+    RamMockBackend backend(mock);
+    MramFileAccess<MramLayout, decltype(backend)> access(backend, MramFileMode::RawRecord);
 
-    std::uint8_t out[8]{};
+    SUBCASE("Offset at or beyond end returns EOF (true, size=0)")
+    {
+        std::uint8_t out[4]{};
+        std::size_t size = sizeof(out);
+
+        CHECK(access.read(makePath("config"), sizeof(MramRecord<mram_config_t>), out, size) == true);
+        CHECK(size == 0);
+
+        size = sizeof(out);
+        CHECK(access.read(makePath("config"), sizeof(MramRecord<mram_config_t>) + 10, out, size) == true);
+        CHECK(size == 0);
+    }
+
+    SUBCASE("Missing file and non-null-terminated full-length path return false")
+    {
+        std::uint8_t out[4]{};
+        std::size_t size = sizeof(out);
+        CHECK(access.read(makePath("does_not_exist"), 0, out, size) == false);
+        CHECK(size == 0);
+
+        FileName full_name{};
+        full_name.fill('z');
+        size = sizeof(out);
+        CHECK(access.read(full_name, 0, out, size) == false);
+        CHECK(size == 0);
+    }
+
+    SUBCASE("Zero-length read succeeds and null buffer with non-zero size fails")
+    {
+        std::size_t zero_size = 0;
+        CHECK(access.read(makePath("config"), 0, nullptr, zero_size) == true);
+        CHECK(zero_size == 0);
+
+        std::size_t nonzero_size = 4;
+        CHECK(access.read(makePath("config"), 0, nullptr, nonzero_size) == false);
+        CHECK(nonzero_size == 0);
+    }
+}
+
+// ------------------------------------------------------------
+// PayloadOnly mode + MramStore / MramWriteStream interop
+// ------------------------------------------------------------
+TEST_CASE("MramFileAccess (PayloadOnly): reads validated payload written by MramStore or MramWriteStream")
+{
+    RamMramMock<sizeof(MramLayout)> mock;
+    RamMockBackend backend(mock);
+    MramStore<MramLayout, decltype(backend)> store(backend);
+    MramFileAccess<MramLayout, decltype(backend)> access(backend, MramFileMode::PayloadOnly);
+
+    // 1. Erased MRAM fails validation
+    {
+        std::uint8_t out[16]{};
+        std::size_t size = sizeof(out);
+        CHECK(access.read(makePath("config"), 0, out, size) == false);
+        CHECK(size == 0);
+    }
+
+    // 2. Write via MramStore, then read chunked payload via MramFileAccess
+    REQUIRE(store.set(mram_state_t{{0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80}}) == true);
+
+    std::vector<std::uint8_t> assembled;
+    std::size_t offset = 0;
+    while (true)
+    {
+        std::uint8_t chunk[3]{};
+        std::size_t chunk_len = sizeof(chunk);
+        REQUIRE(access.read(makePath("state"), offset, chunk, chunk_len) == true);
+        if (chunk_len == 0)
+            break; // EOF
+        assembled.insert(assembled.end(), chunk, chunk + chunk_len);
+        offset += chunk_len;
+    }
+
+    REQUIRE(assembled.size() == sizeof(mram_state_t));
+    CHECK(assembled == std::vector<std::uint8_t>{0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80});
+
+    // 3. Write via MramWriteStream(PayloadOnly), then read via MramFileAccess(PayloadOnly)
+    MramWriteStream<MramLayout, decltype(backend)> writer(backend, MramStreamMode::PayloadOnly);
+    REQUIRE(writer.initialize(makePath("config")) == true);
+    const std::uint8_t cfg_bytes[4] = {0xAA, 0xBB, 0xCC, 0xDD};
+    REQUIRE(writer.output(cfg_bytes, sizeof(cfg_bytes)) == true);
+    REQUIRE(writer.finalize() == true);
+
+    std::uint8_t cfg_out[16]{};
+    std::size_t cfg_size = sizeof(cfg_out);
+    REQUIRE(access.read(makePath("config"), 0, cfg_out, cfg_size) == true);
+    CHECK(cfg_size == sizeof(mram_config_t));
+    CHECK(std::memcmp(cfg_out, cfg_bytes, sizeof(cfg_bytes)) == 0);
+}
+
+TEST_CASE("MramFileAccess (PayloadOnly): rejects corrupted payload or mismatched version")
+{
+    RamMramMock<sizeof(MramLayout)> mock;
+    RamMockBackend backend(mock);
+    MramStore<MramLayout, decltype(backend)> store(backend);
+    MramFileAccess<MramLayout, decltype(backend)> access(backend, MramFileMode::PayloadOnly);
+
+    REQUIRE(store.set(mram_config_t{{1, 2, 3, 4}}) == true);
+
+    // Flip one byte in stored payload
+    mock.data()[MramTraits<mram_config_t, MramLayout>::offset +
+                offsetof(MramRecord<mram_config_t>, payload)] ^= 0x01;
+
+    std::uint8_t out[4]{};
     std::size_t size = sizeof(out);
+    CHECK(access.read(makePath("config"), 0, out, size) == false);
+    CHECK(size == 0);
+}
 
-    bool ok = access.read(makePath("state"), 4, out, size);
+// ------------------------------------------------------------
+// FailingBackend tests
+// ------------------------------------------------------------
+TEST_CASE("MramFileAccess (FailingBackend): propagates backend read failures")
+{
+    FailingFileAccessBackend backend;
+    MramStore<MramLayout, FailingFileAccessBackend> store(backend);
+    REQUIRE(store.set(mram_config_t{{5, 6, 7, 8}}) == true);
 
-    CHECK(ok == true);
-    CHECK(mock.readBytes_called == true);
+    backend.fail_read = true;
 
-    CHECK(mock.last_addr ==
-          MramTraits<mram_state_t, MramLayout>::offset + 4);
-    CHECK(mock.last_len == 8);
-    CHECK(out[0] == 0xCC);
+    SUBCASE("RawRecord mode")
+    {
+        MramFileAccess<MramLayout, FailingFileAccessBackend> access(backend, MramFileMode::RawRecord);
+        std::uint8_t out[16]{};
+        std::size_t size = sizeof(out);
+        CHECK(access.read(makePath("config"), 0, out, size) == false);
+        CHECK(size == 0);
+    }
+
+    SUBCASE("PayloadOnly mode")
+    {
+        MramFileAccess<MramLayout, FailingFileAccessBackend> access(backend, MramFileMode::PayloadOnly);
+        std::uint8_t out[4]{};
+        std::size_t size = sizeof(out);
+        CHECK(access.read(makePath("config"), 0, out, size) == false);
+        CHECK(size == 0);
+    }
 }

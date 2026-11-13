@@ -1,8 +1,9 @@
 #pragma once
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <algorithm>
 
 // -----------------------------------------------------------------------------
 // RamMramMock: a deterministic, byte-addressable MRAM mock for testing
@@ -15,47 +16,43 @@ public:
 
     RamMramMock()
     {
-        storage_.fill(0xFF);   // MRAM defaults to erased state
+        storage_.fill(0xFF); // MRAM defaults to erased state
     }
 
-    // -------------------------------------------------------------------------
-    // Read bytes from mock MRAM
-    // -------------------------------------------------------------------------
-    bool readBytes(uint32_t addr, void* buf, uint16_t len) const
+    bool readBytes(std::uint32_t addr, void* buf, std::uint16_t len) const
     {
-        if (addr + len > kSize)
+        if (addr > kSize || len > kSize - addr)
+            return false;
+        if (len == 0)
+            return true;
+        if (!buf)
             return false;
 
         std::memcpy(buf, storage_.data() + addr, len);
         return true;
     }
 
-    // -------------------------------------------------------------------------
-    // Write bytes to mock MRAM
-    // -------------------------------------------------------------------------
-    bool writeBytes(uint32_t addr, const void* buf, uint16_t len)
+    bool writeBytes(std::uint32_t addr, const void* buf, std::uint16_t len)
     {
-        if (addr + len > kSize)
+        if (addr > kSize || len > kSize - addr)
+            return false;
+        if (len == 0)
+            return true;
+        if (!buf)
             return false;
 
         std::memcpy(storage_.data() + addr, buf, len);
         return true;
     }
 
-    // -------------------------------------------------------------------------
-    // Reset mock MRAM to erased state
-    // -------------------------------------------------------------------------
-    void reset(uint8_t fill = 0xFF)
+    void reset(std::uint8_t fill = 0xFF)
     {
         storage_.fill(fill);
     }
 
-    // -------------------------------------------------------------------------
-    // Direct access for tests (optional)
-    // -------------------------------------------------------------------------
-    const uint8_t* data() const { return storage_.data(); }
-    uint8_t*       data()       { return storage_.data(); }
+    const std::uint8_t* data() const { return storage_.data(); }
+    std::uint8_t*       data()       { return storage_.data(); }
 
 private:
-    std::array<uint8_t, Size> storage_;
+    std::array<std::uint8_t, Size> storage_;
 };

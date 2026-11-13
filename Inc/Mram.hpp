@@ -1,12 +1,13 @@
 // Mram.hpp - MRAM driver header
 
 #pragma once
+#include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
-#include <string_view>
-#include <array>
 
 // ------------------------------------------------------------
 // 1. Generic MRAM record wrapper
@@ -52,7 +53,7 @@ concept MramTraitsConcept =
         { Traits::offset }  -> std::convertible_to<std::uint32_t>;
         { Traits::version } -> std::convertible_to<std::uint32_t>;
         { Traits::index }   -> std::convertible_to<std::size_t>;
-        { Traits::name }    -> std::same_as<const char*>;
+        { Traits::name }    -> std::convertible_to<const char*>;
     };
 
 // ------------------------------------------------------------
@@ -81,7 +82,7 @@ struct member_payload<Layout, MramRecord<T> Layout::* const&>
 };
 
 // ------------------------------------------------------------
-// 5. Compute tuple index of a payload type (optional helper)
+// 5. Compute tuple index of a payload type
 // ------------------------------------------------------------
 
 template <typename Layout, typename T>
@@ -105,9 +106,12 @@ constexpr std::size_t compute_member_index()
 struct MramRegistryEntry
 {
     const char*   name;
-    std::uint32_t offset;
-    std::size_t   size;
+    std::uint32_t offset;         // offset of MramRecord<T> in Layout
+    std::size_t   size;           // sizeof(MramRecord<T>)
+    std::size_t   payload_offset; // offsetof(MramRecord<T>, payload)
+    std::size_t   payload_size;   // sizeof(T)
     std::size_t   index;
+    std::uint32_t version;
 };
 
 // ------------------------------------------------------------
@@ -117,70 +121,84 @@ struct MramRegistryEntry
 template <typename Layout>
 struct MramRegistry
 {
-    // Build entries from MramLayoutMembers<Layout> and MramTraits<T, Layout>
     static constexpr auto build_entries()
     {
         constexpr auto tup = MramLayoutMembers<Layout>::members;
 
         return []<std::size_t... I>(std::index_sequence<I...>) {
-            return std::array{
-                MramRegistryEntry{
-                    MramTraits<
-                        typename member_payload<Layout, decltype(std::get<I>(tup))>::type,
-                        Layout
-                    >::name,
-                    MramTraits<
-                        typename member_payload<Layout, decltype(std::get<I>(tup))>::type,
-                        Layout
-                    >::offset,
-                    sizeof(MramRecord<
-                        typename member_payload<Layout, decltype(std::get<I>(tup))>::type
-                    >),
-                    MramTraits<
-                        typename member_payload<Layout, decltype(std::get<I>(tup))>::type,
-                        Layout
-                    >::index
-                }...
+            return std::array<MramRegistryEntry, sizeof...(I)>{
+                []<std::size_t Idx>() {
+                    using T = typename member_payload<Layout, decltype(std::get<Idx>(tup))>::type;
+                    using Traits = MramTraits<T, Layout>;
+
+                    static_assert(std::is_standard_layout_v<T>,
+                                  "MRAM payload T must be standard-layout");
+                    static_assert(std::is_trivially_copyable_v<T>,
+                                  "MRAM payload T must be trivially copyable");
+                    static_assert(MramTraitsConcept<Traits>,
+                                  "Invalid or missing MramTraits specialization");
+                    static_assert(Traits::name != nullptr,
+                                  "MramTraits::name must not be null");
+
+                    return MramRegistryEntry{
+                        Traits::name,
+                        Traits::offset,
+                        sizeof(MramRecord<T>),
+                        offsetof(MramRecord<T>, payload),
+                        sizeof(T),
+                        Traits::index,
+                        Traits::version
+                    };
+                }.template operator()<I>()...
             };
         }(std::make_index_sequence<std::tuple_size_v<decltype(tup)>>{});
     }
 
     static constexpr auto entries = build_entries();
 
-    // --------------------------------------------------------
-    // 8. Minimal compile-time validation: every member has traits
-    // --------------------------------------------------------
+    static consteval bool validate_entries()
+    {
+        for (std::size_t i = 0; i < entries.size(); ++i)
+        {
+            if (entries[i].name == nullptr || entries[i].name[0] == '\0')
+                return false;
 
-    // template <std::size_t... I>
-    // static consteval bool all_traits_present(std::index_sequence<I...>)
-    // {
-    //     constexpr auto tup = MramLayoutMembers<Layout>::members;
-    //     return (MramTraitsConcept<
-    //                 MramTraits<
-    //                     typename member_payload<Layout, decltype(std::get<I>(tup))>::type,
-    //                     Layout
-    //                 >
-    //             > && ...);
-    // }
+            for (std::size_t j = i + 1; j < entries.size(); ++j)
+            {
+                if (entries[i].index == entries[j].index)
+                    return false;
+                if (std::string_view(entries[i].name) == entries[j].name)
+                    return false;
+            }
+        }
+        return true;
+    }
 
-    // static_assert(
-    //     all_traits_present(
-    //         std::make_index_sequence<
-    //             std::tuple_size_v<decltype(MramLayoutMembers<Layout>::members)>
-    //         >{}
-    //     ),
-    //     "Missing MramTraits specialization for some MRAM record"
-    // );
+    static_assert(validate_entries(),
+                  "MramRegistry entries must have non-empty unique names and unique indices");
 
-    // --------------------------------------------------------
-    // 9. Lookup by name
-    // --------------------------------------------------------
-
-    static const MramRegistryEntry* lookup(std::string_view name)
+    static constexpr const MramRegistryEntry* lookup(std::string_view name)
     {
         for (auto const& e : entries)
             if (name == e.name)
                 return &e;
         return nullptr;
+    }
+
+    static constexpr const MramRegistryEntry* lookup_by_index(std::size_t index)
+    {
+        for (auto const& e : entries)
+            if (e.index == index)
+                return &e;
+        return nullptr;
+    }
+
+    template <typename T>
+    static constexpr const MramRegistryEntry& entry_for()
+    {
+        constexpr auto idx = compute_member_index<Layout, T>();
+        static_assert(idx != static_cast<std::size_t>(-1),
+                      "Type T is not in MramLayoutMembers<Layout>");
+        return entries[idx];
     }
 };
