@@ -138,6 +138,7 @@ EXTRA_OBJS_TestTaskRequestGetInfo := src/ServiceManager.o src/RegistrationManage
 EXTRA_OBJS_TestTaskRequestRead := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskRequestWrite := src/RegistrationManager.o src/cyphal.o cyphal/canard.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskRespondGetInfo := src/ServiceManager.o src/RegistrationManager.o
+EXTRA_OBJS_TestTaskRespondRegisterAccess := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTaskRespondRegisterList := src/ServiceManager.o src/RegistrationManager.o
 EXTRA_OBJS_TestTaskRespondWrite := src/RegistrationManager.o src/cyphal.o cyphal/o1heap.o
 EXTRA_OBJS_TestTaskRespondWriteConcurrency := src/RegistrationManager.o src/cyphal.o cyphal/o1heap.o
