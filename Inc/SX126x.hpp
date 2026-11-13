@@ -310,12 +310,12 @@ public:
 
     bool SetPacketParams(const sx126x::LoRaPacketParams params)
     {
-        const sx126x::LoRaPacketParams params_ =
+        this->packet_params_ =
         {
         		swap16(params.preamble_length), params.header_type, params.payload_length, params.crc, params.iq
         };
 
-    	return WriteCommand(sx126x::Command::SetPacketParams, reinterpret_cast<const uint8_t*>(&params_), sizeof(params_));
+    	return SetPacketParamsPrivate(this->packet_params_);
     }
 
     // For SX1262 modules (+22 dBm):
@@ -353,25 +353,19 @@ public:
 
     bool StartRx()
     {
-        uint8_t timeout[3]
-        {
-            0xFF,
-            0xFF,
-            0xFF
-        };
-
+        SetPacketParamsPrivate(this->packet_params_);
+        
+        uint8_t timeout[3] { 0xFF, 0xFF, 0xFF };
         return WriteCommand(sx126x::Command::SetRx, timeout, sizeof(timeout)); 
     }
 
-    bool StartTx()
+    bool StartTx(uint8_t len)
     {
-        uint8_t timeout[3]
-        {
-            0x00,
-            0x00,
-            0x00
-        };
+        sx126x::LoRaPacketParams params = this->packet_params_;
+        params.payload_length = len;
+        SetPacketParamsPrivate(params);
 
+        uint8_t timeout[3] { 0x00, 0x00, 0x00 };
         return WriteCommand(sx126x::Command::SetTx, timeout, sizeof(timeout)); 
     }
 
@@ -455,12 +449,6 @@ public:
 
 private:
 
-    Transport& transport_;
-
-    BusyPin busy_{};
-    ResetPin reset_{};
-    Dio1Pin dio1_{};
-
     void wait_busy()
     {
         while (busy_.read())
@@ -505,6 +493,11 @@ private:
         return true;
     }
 
+    bool SetPacketParamsPrivate(const sx126x::LoRaPacketParams& params)
+    {
+    	return WriteCommand(sx126x::Command::SetPacketParams, reinterpret_cast<const uint8_t*>(&params), sizeof(params));
+    }
+
 	constexpr uint16_t swap16(uint16_t val) {
 		return (val << 8) | (val >> 8);
 	}
@@ -515,4 +508,13 @@ private:
 			   ((val >>  8) & 0x0000FF00) |
 			   ((val >> 24) & 0x000000FF);
 	}
+
+private:
+    Transport& transport_;
+
+    BusyPin busy_{};
+    ResetPin reset_{};
+    Dio1Pin dio1_{};
+
+    sx126x::LoRaPacketParams packet_params_{};
 };

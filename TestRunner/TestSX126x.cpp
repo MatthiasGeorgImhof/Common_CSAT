@@ -317,23 +317,109 @@ TEST_CASE_FIXTURE(Fixture, "StartRx")
     radio.StartRx();
 
     auto* tx = get_spi_tx_buffer();
-    REQUIRE(get_spi_tx_buffer_count() == 4);
-    CHECK(tx[0] == 0x82);
-    CHECK(tx[1] == 0xFF);
-    CHECK(tx[2] == 0xFF);
-    CHECK(tx[3] == 0xFF);
+    REQUIRE(get_spi_tx_buffer_count() == 4 + sizeof(sx126x::LoRaPacketParams) + 1);
+    CHECK(tx[0] == 0x8C);
+    CHECK(tx[1] == 0x00);
+    CHECK(tx[2] == 0x00);
+    CHECK(tx[3] == 0x00);
+    CHECK(tx[4] == 0x00);
+    CHECK(tx[5] == 0x00);
+    CHECK(tx[6] == 0x00);
+    
+    CHECK(tx[7] == 0x82);
+    CHECK(tx[8] == 0xFF);
+    CHECK(tx[9] == 0xFF);
+    CHECK(tx[10] == 0xFF);
 }
 
 TEST_CASE_FIXTURE(Fixture, "StartTx")
 {
-    radio.StartTx();
+    radio.StartTx(4);
 
     auto* tx = get_spi_tx_buffer();
-    REQUIRE(get_spi_tx_buffer_count() == 4);
-    CHECK(tx[0] == 0x83);
+    REQUIRE(get_spi_tx_buffer_count() == 4 + sizeof(sx126x::LoRaPacketParams) + 1);
+    CHECK(tx[0] == 0x8C);
     CHECK(tx[1] == 0x00);
     CHECK(tx[2] == 0x00);
     CHECK(tx[3] == 0x00);
+    CHECK(tx[4] == 0x04);
+    CHECK(tx[5] == 0x00);
+    CHECK(tx[6] == 0x00);
+
+    CHECK(tx[7] == 0x83);
+    CHECK(tx[8] == 0x00);
+    CHECK(tx[9] == 0x00);
+    CHECK(tx[10] == 0x00);
+}
+
+TEST_CASE_FIXTURE(Fixture, "StartRx with payload length 4")
+{
+    sx126x::LoRaPacketParams params{
+        .preamble_length = 0x0280, // 640 symbols -> MSB: 0x02, LSB: 0x80
+        .header_type     = sx126x::HeaderType::Variable,
+        .payload_length  = 0x14,
+        .crc             = 0x01,
+        .iq              = 0x00
+    };
+
+    CHECK(radio.SetPacketParams(params));
+    auto* tx1 = get_spi_tx_buffer();
+    REQUIRE(get_spi_tx_buffer_count() == 7);
+    CHECK(tx1[0] == 0x8C); // Command::SetPacketParams
+
+    clear_spi();    
+    
+    radio.StartRx();
+
+    auto* tx = get_spi_tx_buffer();
+    REQUIRE(get_spi_tx_buffer_count() == 4 + sizeof(sx126x::LoRaPacketParams) + 1);
+    CHECK(tx[0] == 0x8C); // Command::SetPacketParams
+    CHECK(tx[1] == 0x02); // Preamble Length MSB
+    CHECK(tx[2] == 0x80); // Preamble Length LSB
+    CHECK(tx[3] == 0x00); // Header Type
+    CHECK(tx[4] == 0x14); // Payload Length
+    CHECK(tx[5] == 0x01); // CRC
+    CHECK(tx[6] == 0x00); // IQ
+    
+    CHECK(tx[7] == 0x82);
+    CHECK(tx[8] == 0xFF);
+    CHECK(tx[9] == 0xFF);
+    CHECK(tx[10] == 0xFF);
+}
+
+TEST_CASE_FIXTURE(Fixture, "StartTx with payload length 4")
+{
+    sx126x::LoRaPacketParams params{
+        .preamble_length = 0x0280, // 640 symbols -> MSB: 0x02, LSB: 0x80
+        .header_type     = sx126x::HeaderType::Variable,
+        .payload_length  = 0x14,
+        .crc             = 0x01,
+        .iq              = 0x00
+    };
+
+    CHECK(radio.SetPacketParams(params));
+    auto* tx1 = get_spi_tx_buffer();
+    REQUIRE(get_spi_tx_buffer_count() == 7);
+    CHECK(tx1[0] == 0x8C); // Command::SetPacketParams
+
+    clear_spi();    
+
+    radio.StartTx(4);
+
+    auto* tx = get_spi_tx_buffer();
+    REQUIRE(get_spi_tx_buffer_count() == 4 + sizeof(sx126x::LoRaPacketParams) + 1);
+    CHECK(tx[0] == 0x8C); // Command::SetPacketParams
+    CHECK(tx[1] == 0x02); // Preamble Length MSB
+    CHECK(tx[2] == 0x80); // Preamble Length LSB
+    CHECK(tx[3] == 0x00); // Header Type
+    CHECK(tx[4] == 0x04); // NOT the original payload Length, reset ot the StartTx() argument
+    CHECK(tx[5] == 0x01); // CRC
+    CHECK(tx[6] == 0x00); // IQ
+
+    CHECK(tx[7] == 0x83);
+    CHECK(tx[8] == 0x00);
+    CHECK(tx[9] == 0x00);
+    CHECK(tx[10] == 0x00);
 }
 
 TEST_CASE_FIXTURE(Fixture, "WriteBuffer")

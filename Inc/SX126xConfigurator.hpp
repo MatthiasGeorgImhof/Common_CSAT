@@ -40,7 +40,7 @@ public:
         radio_.SetFrequency(config_.frequency_hz);
         radio_.SetPaConfig(config_.pa_config);
         radio_.SetTxPower(config_.power_dbm);
-        radio_.SetBufferBaseAddress(0x00, 0x80);
+        radio_.SetBufferBaseAddress(0x00, 0x00);
         radio_.SetModulationParams(config_.modulation);
         radio_.SetPacketParams(config_.packet);
         radio_.SetDioIrqParams(config_.irqs);
