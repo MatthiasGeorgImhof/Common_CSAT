@@ -67,7 +67,7 @@ TEST_CASE("Canard Send Receive - small with SMALL_DATA_MTU")
     CHECK(peek_ptr != nullptr);
     CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
     CHECK(ptr != nullptr);
-    printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
+    // printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
 
     CyphalTransfer transfer;
     CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 1);
@@ -109,7 +109,7 @@ TEST_CASE("Canard Send Receive - max with SMALL_DATA_MTU")
     CHECK(peek_ptr != nullptr);
     CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
     CHECK(ptr != nullptr);
-    printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
+    // printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
 
     CyphalTransfer transfer;
     CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 1);
@@ -155,7 +155,7 @@ TEST_CASE("Canard Send Receive - large with SMALL_DATA_MTU")
         CHECK(peek_ptr != nullptr);
         CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
         CHECK(ptr != nullptr);
-        printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
+        // printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
 
         result = cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer);
         canardTxFree(&adapter.que, &adapter.ins, peek_ptr);
@@ -202,7 +202,7 @@ TEST_CASE("Canard Send Receive - large with custom MTU 13")
         CHECK(peek_ptr != nullptr);
         CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
         CHECK(ptr != nullptr);
-        printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
+        // printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
 
         result = cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer);
         canardTxFree(&adapter.que, &adapter.ins, peek_ptr);
@@ -245,7 +245,7 @@ TEST_CASE("Canard Send Receive - small with LARGE_DATA_MTU")
     CHECK(peek_ptr != nullptr);
     CanardTxQueueItem *ptr = canardTxPop(&adapter.que, peek_ptr);
     CHECK(ptr != nullptr);
-    printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
+    // printf("frame size: %3lu payload size: %3lu mtu %3d\n", peek_ptr->frame.payload.size, sizeof(payload), MTU);
 
     CyphalTransfer transfer;
     CHECK(cyphal.cyphalRxReceive(ptr->frame.extended_can_id, &ptr->frame.payload.size, static_cast<const uint8_t *>(ptr->frame.payload.data), &transfer) == 1);

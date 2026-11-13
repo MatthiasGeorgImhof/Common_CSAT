@@ -171,6 +171,22 @@ struct MramRegistry
                     return false;
             }
         }
+
+        // Ensure indices form a contiguous range 0 .. entries.size() - 1
+        for (std::size_t expected = 0; expected < entries.size(); ++expected)
+        {
+            bool found = false;
+            for (const auto& e : entries)
+            {
+                if (e.index == expected)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                return false;
+        }
         return true;
     }
 
