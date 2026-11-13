@@ -238,7 +238,7 @@ TEST_CASE_FIXTURE(Fixture, "SetPacketParams big-endian preamble swapping")
 {
     sx126x::LoRaPacketParams params{
         .preamble_length = 0x0280, // 640 symbols -> MSB: 0x02, LSB: 0x80
-        .header_type     = 0x00,
+        .header_type     = sx126x::HeaderType::Variable,
         .payload_length  = 0x14,
         .crc             = 0x01,
         .iq              = 0x00

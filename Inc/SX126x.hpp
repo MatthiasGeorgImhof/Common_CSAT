@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "Transport.hpp"
+#include "BitmaskEnum.hpp"
 
 namespace sx126x
 {
@@ -70,6 +71,16 @@ namespace sx126x
     };
 
     // ------------------------------------------------------------------------
+    // Header Type
+    // ------------------------------------------------------------------------
+    
+    enum class HeaderType : uint8_t
+    {
+        Variable = 0x00,
+        Fixed = 0x01
+    };
+
+    // ------------------------------------------------------------------------
     // IRQ Flags
     // ------------------------------------------------------------------------
 
@@ -93,6 +104,7 @@ namespace sx126x
 
         Timeout           = 0x0200
     };
+    ENABLE_BITMASK_OPERATORS(IRQ)
 
     struct PacketStatus
     {
@@ -121,12 +133,14 @@ namespace sx126x
     {
         uint16_t preamble_length;
 
-        uint8_t header_type;
+        HeaderType header_type;
         uint8_t payload_length;
 
         uint8_t crc;
         uint8_t iq;
     };
+
+   static constexpr uint8_t MTU = 255;
 
     struct IrqMasks {
     	sx126x::IRQ IrqMask;
