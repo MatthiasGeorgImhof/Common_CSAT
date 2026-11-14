@@ -1,3 +1,0 @@
-uint8[7] unique_id
-uavcan.time.SynchronizedTimestamp.1.0 timestamp
-@sealed
