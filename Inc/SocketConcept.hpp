@@ -1,0 +1,98 @@
+#pragma once
+
+#include <concepts>
+#include <cstdint>
+
+#include "W5500Driver.hpp"
+
+template<typename Driver>
+concept SocketConcept =
+requires(
+    Driver driver,
+    typename Driver::SOCKET_NUMBER socket_number)
+{
+    { driver.socketStatus(socket_number) } -> std::convertible_to<uint8_t>;
+    { driver.rxAvailable(socket_number) } -> std::convertible_to<uint16_t>;
+    { driver.txAvailable(socket_number) } -> std::convertible_to<uint16_t>;
+};
+
+template <typename Driver>
+concept UdpSocketConcept = SocketConcept<Driver> &&
+    requires(
+        Driver driver,
+		typename Driver::SOCKET_NUMBER socket_number,
+		uint16_t port,
+        const uint8_t *tx_data,
+        uint8_t *rx_data,
+        uint16_t size,
+		IPv4Address address,
+        uint16_t remote_port) {
+        { driver.openUdp(socket_number, port) } -> std::same_as<bool>;
+
+        { driver.closeUdp(socket_number) } -> std::same_as<void>;
+
+        {
+            driver.sendUdp(
+                socket_number,
+                tx_data,
+                size,
+                address,
+                remote_port)
+        } -> std::convertible_to<int32_t>;
+
+        {
+            driver.receiveUdp(
+                socket_number,
+                rx_data,
+                size,
+                address,
+                remote_port)
+        } -> std::convertible_to<int32_t>;
+    };
+
+template <typename Driver>
+concept TcpSocketConcept = SocketConcept<Driver> &&
+    requires(
+        Driver driver,
+		typename Driver::SOCKET_NUMBER socket_number,
+        uint16_t port,
+        const uint8_t *tx_data,
+        uint8_t *rx_data,
+        uint16_t size,
+        IPv4Address address,
+        uint16_t remote_port) {
+        { driver.openTcp(socket_number, port) } -> std::same_as<bool>;
+
+        { driver.closeTcp(socket_number) } -> std::same_as<void>;
+
+        {
+            driver.connectTcp(
+                socket_number,
+                address,
+                remote_port)
+        } -> std::same_as<bool>;
+
+        {
+            driver.disconnectTcp(
+                socket_number)
+        } -> std::same_as<bool>;
+
+        {
+            driver.listenTcp(
+                socket_number)
+        } -> std::same_as<bool>;
+
+        {
+            driver.sendTcp(
+                socket_number,
+                tx_data,
+                size)
+        } -> std::convertible_to<int32_t>;
+
+        {
+            driver.receiveTcp(
+                socket_number,
+                rx_data,
+                size)
+        } -> std::convertible_to<int32_t>;
+    };
