@@ -310,12 +310,11 @@ public:
 
     bool SetPacketParams(const sx126x::LoRaPacketParams params)
     {
-        this->packet_params_ =
-        {
+        const sx126x::LoRaPacketParams params_ {
         		swap16(params.preamble_length), params.header_type, params.payload_length, params.crc, params.iq
         };
 
-    	return SetPacketParamsPrivate(this->packet_params_);
+    	return WriteCommand(sx126x::Command::SetPacketParams, reinterpret_cast<const uint8_t*>(&params_), sizeof(params_));
     }
 
     // For SX1262 modules (+22 dBm):
@@ -353,18 +352,12 @@ public:
 
     bool StartRx()
     {
-        SetPacketParamsPrivate(this->packet_params_);
-        
         uint8_t timeout[3] { 0xFF, 0xFF, 0xFF };
         return WriteCommand(sx126x::Command::SetRx, timeout, sizeof(timeout)); 
     }
 
-    bool StartTx(uint8_t len)
+    bool StartTx()
     {
-        sx126x::LoRaPacketParams params = this->packet_params_;
-        params.payload_length = len;
-        SetPacketParamsPrivate(params);
-
         uint8_t timeout[3] { 0x00, 0x00, 0x00 };
         return WriteCommand(sx126x::Command::SetTx, timeout, sizeof(timeout)); 
     }
@@ -429,16 +422,16 @@ public:
         return WriteCommand(sx126x::Command::SetDioIrqParams, reinterpret_cast<const uint8_t*>(&masks_), sizeof(masks_));
     }
 
-    uint16_t GetIrqStatus()
+    sx126x::IRQ GetIrqStatus()
     {
         uint16_t irq{};
         ReadCommand(sx126x::Command::GetIrqStatus, reinterpret_cast<uint8_t*>(&irq), sizeof(irq));
-        return swap16(irq);
+        return sx126x::IRQ(swap16(irq));
     }
 
-    void ClearIrqStatus(uint16_t flags)
+    void ClearIrqStatus(sx126x::IRQ flags)
     {
-        uint16_t flags_swapped = swap16(flags);
+        uint16_t flags_swapped = swap16(static_cast<uint16_t>(flags));
         WriteCommand(sx126x::Command::ClearIrqStatus, reinterpret_cast<const uint8_t*>(&flags_swapped), sizeof(flags_swapped));
     }
 
@@ -493,11 +486,6 @@ private:
         return true;
     }
 
-    bool SetPacketParamsPrivate(const sx126x::LoRaPacketParams& params)
-    {
-    	return WriteCommand(sx126x::Command::SetPacketParams, reinterpret_cast<const uint8_t*>(&params), sizeof(params));
-    }
-
 	constexpr uint16_t swap16(uint16_t val) {
 		return (val << 8) | (val >> 8);
 	}
@@ -515,6 +503,4 @@ private:
     BusyPin busy_{};
     ResetPin reset_{};
     Dio1Pin dio1_{};
-
-    sx126x::LoRaPacketParams packet_params_{};
 };
