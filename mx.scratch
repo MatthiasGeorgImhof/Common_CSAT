@@ -3,15 +3,15 @@
   <FileVersion>3.0</FileVersion>
   <Workspace>
     <WorkspaceType>Single-project</WorkspaceType>
-    <WorkspacePath>/home/mgi/Data/STM32CubeIDE/CS_Test/WeActF411_SX126x/</WorkspacePath>
+    <WorkspacePath>/home/mgi/Data/STM32CubeIDE/CS_Test/WeActF411_SX126x_Canard/</WorkspacePath>
     <underRoot>true</underRoot>
     <TrustZone>0</TrustZone>
     <HAL_Driver>/home/mgi/STM32Cube/Repository//STM32Cube_FW_F4_V1.28.3</HAL_Driver>
     <CMSIS>Drivers/CMSIS</CMSIS>
     <Toolchain>STM32CubeIDE</Toolchain>
-    <IocFile>WeActF411_SX126x.ioc</IocFile>
+    <IocFile>WeActF411_SX126x_Canard.ioc</IocFile>
     <Project>
-      <ProjectName>WeActF411_SX126x</ProjectName>
+      <ProjectName>WeActF411_SX126x_Canard</ProjectName>
       <ProjectNature>CPP</ProjectNature>
       <Secure />
       <filestoremove />
@@ -20,7 +20,7 @@
       </sourceEntriesToRemove>
       <configs>
         <config>
-          <name>WeActF411_SX126x</name>
+          <name>WeActF411_SX126x_Canard</name>
           <mainSourceRepo>Core</mainSourceRepo>
           <sourceStructure>Advanced</sourceStructure>
           <device>STM32F411CEUx</device>

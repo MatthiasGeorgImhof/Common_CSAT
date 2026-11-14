@@ -149,8 +149,9 @@ void SerialTxQueueDrainer<MTU>::drain()
         canardTxPop(&adapter_->que, ti);
         COBSFramer<MTU> framer;
         dma_frame_ = framer.serialize(ti->frame);
-        HAL_UART_Transmit_DMA(huart_, reinterpret_cast<uint8_t*>(&dma_frame_), sizeof(dma_frame_));
+        auto ok = HAL_UART_Transmit_DMA(huart_, reinterpret_cast<uint8_t*>(&dma_frame_), sizeof(dma_frame_));
 
+        log(LOG_LEVEL_DEBUG, "SerialTxQueueDrainer::drain: send %d bytes mresult=%d\r\n", sizeof(dma_frame_), ok);
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }
 }
@@ -198,3 +199,49 @@ void UdpTxQueueDrainer<UdpSocket, destination, MTU>::drain()
 }
 
 #endif // !defined(__arm__) || defined(HAL_SPI_MODULE_ENABLED)
+
+//
+// drain to SX126x radio
+//
+
+#if !defined(__arm__) || defined(HAL_SPI_MODULE_ENABLED)
+
+template<typename Controller, uint8_t MTU>
+class SX126xTxQueueDrainer
+{
+public:
+	SX126xTxQueueDrainer(CanardAdapter* adapter, Controller* controller);
+
+    void drain();
+
+private:
+    CanardAdapter* adapter_;
+    Controller* controller_;
+};
+
+template<typename Controller, uint8_t MTU>
+SX126xTxQueueDrainer<Controller, MTU>::SX126xTxQueueDrainer(CanardAdapter* adapter, Controller* controller)
+    : adapter_(adapter), controller_(controller)
+{}
+
+template<typename Controller, uint8_t MTU>
+void SX126xTxQueueDrainer<Controller, MTU>::drain()
+{
+	CanardTxQueueItem* ti = nullptr;
+    while ((ti = canardTxPeek(&adapter_->que)) != nullptr)
+    {
+        PlainFramer<MTU> framer;
+        auto data_frame = framer.serialize(ti->frame);
+        auto len = serialized_size(data_frame);
+        bool ok = controller_->transmit( reinterpret_cast<uint8_t*>(&data_frame), len);
+        log(LOG_LEVEL_DEBUG, "SX126xTxQueueDrainer::drain %lx send %d bytes result=%d\r\n", data_frame.extended_can_id, len, ok);
+        if (! ok)
+        	break;
+
+        canardTxPop(&adapter_->que, ti);
+        canardTxFree(&adapter_->que, &adapter_->ins, ti);
+    }
+}
+
+#endif // !defined(__arm__) || defined(HAL_SPI_MODULE_ENABLED)
+

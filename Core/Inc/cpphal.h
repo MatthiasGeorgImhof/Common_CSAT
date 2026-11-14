@@ -10,5 +10,6 @@
 
 extern RTC_HandleTypeDef hrtc;
 extern SPI_HandleTypeDef hspi1;
+extern UART_HandleTypeDef huart1;
 
 #endif /* INC_CPPHAL_H_ */
