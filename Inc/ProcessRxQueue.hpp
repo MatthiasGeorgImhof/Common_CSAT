@@ -76,8 +76,6 @@ public:
     template <typename... Adapters>
     bool processTransfer(CyphalTransfer &transfer, ServiceManager *service_manager, uint32_t my_node_id, std::tuple<Adapters...> &adapters)
     {
-
-
         using ManagedT = ManagedCyphalTransfer<Heap>;
         SafeAllocator<ManagedT, Heap> alloc;
         auto transfer_ptr = std::allocate_shared<ManagedT>(alloc, transfer);
@@ -127,9 +125,9 @@ public:
 
     template <typename Buffer, typename... Adapters>
     void ProcessRxQueue(Cyphal<CanardAdapter> *cyphal, ServiceManager *service_manager, std::tuple<Adapters...> &adapters, Buffer &rx_buffer)
-//    void ProcessRxQueue(Cyphal<CanardAdapter> *, ServiceManager *, std::tuple<Adapters...> &, Buffer &rx_buffer)
     {
         size_t num_frames = rx_buffer.size();
+		log(LOG_LEVEL_TRACE, "LoopManager::ProcessRxQueue: %d\r\n",num_frames);
         for (uint32_t n = 0; n < num_frames; ++n)
         {
         	auto raw_frame = rx_buffer.pop();

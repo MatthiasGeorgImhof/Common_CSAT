@@ -104,6 +104,7 @@ void SX126xController<Radio, Config, RxBuffer>::handle_rx_done()
     
     auto& frame = rx_buffer_.begin_write();
     radio_.ReadBuffer( rx_info.buffer_pointer, reinterpret_cast<uint8_t*>(&frame), rx_info.payload_length);
+    log(LOG_LEVEL_INFO, "SX126xController::handle_rx_done(): %lx %d\n", frame.extended_can_id, frame.size);
     rx_buffer_.commit_write();
 }
 
