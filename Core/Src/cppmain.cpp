@@ -63,7 +63,7 @@ CanardAdapter radio_adapter;
 LoopardAdapter loop_adapter;
 
 #ifndef CYPHAL_NODE_ID
-#define CYPHAL_NODE_ID 21
+#define CYPHAL_NODE_ID 73
 #endif
 
 constexpr CyphalNodeID cyphal_node_id = CYPHAL_NODE_ID;
@@ -218,20 +218,20 @@ void cppmain()
 	ser_adapter.que = canardTxInit(128, SMALL_DATA_MTU, canard_memory);
 	CanardCyphal ser_cyphal(&ser_adapter);
 	ser_cyphal.setNodeID(cyphal_node_id);
-	ser_adapter.ins.forward_start_id = 1;
+	ser_adapter.ins.forward_start_id = 64;
 	ser_adapter.ins.forward_end_id = 127;
 
 	radio_adapter.ins = canardInit(canard_memory);
 	radio_adapter.que = canardTxInit(16, LARGE_DATA_MTU, canard_memory);
 	CanardCyphal radio_cyphal(&radio_adapter);
 	radio_cyphal.setNodeID(cyphal_node_id);
-	radio_adapter.ins.forward_start_id = 1;
+	radio_adapter.ins.forward_start_id = 64;
 	radio_adapter.ins.forward_end_id = 127;
 
-	std::tuple<Cyphal<CanardAdapter>, Cyphal<CanardAdapter>> serradio_adapters = { ser_cyphal, radio_cyphal };
-	std::tuple<Cyphal<CanardAdapter>> radio_adapters = { radio_cyphal };
-	std::tuple<Cyphal<CanardAdapter>> ser_adapters = { ser_cyphal };
-	std::tuple<> empty_adapters = {} ;
+	[[maybe_unused]] std::tuple<Cyphal<CanardAdapter>, Cyphal<CanardAdapter>> serradio_adapters = { ser_cyphal, radio_cyphal };
+	[[maybe_unused]] std::tuple<Cyphal<CanardAdapter>> radio_adapters = { radio_cyphal };
+	[[maybe_unused]] std::tuple<Cyphal<CanardAdapter>> ser_adapters = { ser_cyphal };
+	[[maybe_unused]] std::tuple<> empty_adapters = {} ;
 
     SpiConfig config;
     SpiTransport transport(config);
@@ -292,21 +292,17 @@ void cppmain()
 	using TPHeart = TaskProcessHeartBeat<CanardCyphal, CanardCyphal>;
 	register_task_with_heap<TPHeart>(registration_manager, 2000, 100, serradio_adapters);
 
-	constexpr uint8_t uuid[] = {0xc4, 0xd1, 0x98, 0x0f, 0x12, 0x75, 0x4d, 0xf4, 0xb8, 0x4e, 0x12, 0xbf, 0x5a, 0xf2, 0x1f, 0x75};
-	constexpr char node_name[50] = "WeActF11_W5500_Canard";
+	constexpr uint8_t uuid[] = {0x34, 0xd1, 0x18, 0xf2, 0x23, 0x37, 0xd4, 0xf3, 0x8a, 0xea, 0x22, 0x4f, 0xa4, 0x2c, 0x1f, 0x95};
+	constexpr char node_name[50] = "WeActF11_SX126x_Node";
 	using TRespondInfo = TaskRespondGetInfo<CanardCyphal, CanardCyphal>;
 	register_task_with_heap<TRespondInfo>(registration_manager, uuid, node_name, 10000, 100, serradio_adapters);
-
-//	using LEDPin  = GpioPin<GPIOC_BASE, GPIO_PIN_13>;
-//	using TBlink = TaskBlinkLED<LEDPin>;
-//	register_task_with_heap<TBlink>(registration_manager, 1000, 100);
 
 	using TCheckMem = TaskCheckMemory;
 	O1HeapInstance *o1heap = LocalHeap::getO1Heap();
 	register_task_with_heap<TCheckMem>(registration_manager, o1heap, 250, 100);
 
-	subscription_manager.subscribeAll(registration_manager, ser_adapters);
-	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_), ser_adapters);
+	subscription_manager.subscribeAll(registration_manager, serradio_adapters);
+	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_), serradio_adapters);
 //	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_node_port_List_1_0_FIXED_PORT_ID_), ser_adapters);
 //	subscription_manager.subscribe<SubscriptionManager::MessageTag>(static_cast<CyphalPortID>(uavcan_diagnostic_Record_1_1_FIXED_PORT_ID_), ser_adapters);
 //
@@ -327,7 +323,6 @@ void cppmain()
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_raw_buf, DMA_RAW_BUF_SIZE);
 	__HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT); // Disable half-transfer interrupt
 
-
     while(1)
 	{
 		auto irq = radio.GetIrqStatus();
@@ -335,13 +330,9 @@ void cppmain()
 			controller.notify_irq();
 		controller.process();
 
-		loop_manager.ProcessRxQueue(&ser_cyphal, &service_manager, radio_adapters, ser_rx_buffer);
+//    	log(LOG_LEVEL_DEBUG, "ser_rx_buffer: %d\r\n", ser_rx_buffer.size());
+    	loop_manager.ProcessRxQueue(&ser_cyphal, &service_manager, radio_adapters, ser_rx_buffer);
 		loop_manager.ProcessRxQueue(&radio_cyphal, &service_manager, ser_adapters, sx_rx_buffer);
-
-//		char buffer[256];
-//		snprintf(buffer, sizeof(buffer), "ser_rx_buffer %3d of %3d; rad_rx_buffer %3d of %3d",
-//				ser_rx_buffer.size(), ser_rx_buffer.capacity(), rad_rx_buffer.size(), rad_rx_buffer.capacity());
-//		log(LOG_LEVEL_DEBUG, "Superloop: %s\r\n", buffer);
 
 		sx126x_drainer.drain();
 		ser_drainer.drain();

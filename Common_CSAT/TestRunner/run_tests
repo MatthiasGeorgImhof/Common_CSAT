@@ -1,7 +1,0 @@
-for i in bin/Test* ; do
-  if [[ "$i" == *.d || "$i" == *.o ]]; then
-    continue  # Skip .d and .o files
-  fi
-  echo "$i"
-  "$i"
-done
