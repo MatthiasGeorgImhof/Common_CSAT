@@ -299,7 +299,7 @@ TEST_CASE("TX_DONE restores receive MTU")
     CHECK( radio.last_packet_params.payload_length == sx126x::MTU);
 }
 
-TEST_CASE("RX_DONE does not restart RX")
+TEST_CASE("RX_DONE does restart RX")
 {
     MockRadio radio;
     SX126xRadioConfig cfg = create_config();
@@ -316,10 +316,10 @@ TEST_CASE("RX_DONE does not restart RX")
 
     auto count = std::count( radio.calls.begin(), radio.calls.end(), "StartRx");
 
-    CHECK(count == 0);
+    CHECK(count == 1);
 }
 
-TEST_CASE("combined IRQ flags are processed")
+TEST_CASE("combined IRQ flags are prioritized")
 {
     MockRadio radio;
     SX126xRadioConfig cfg = create_config();
@@ -334,7 +334,7 @@ TEST_CASE("combined IRQ flags are processed")
     uut.notify_irq();
     uut.process();
 
-    CHECK( std::find( radio.calls.begin(), radio.calls.end(), "ReadBuffer") != radio.calls.end());
+    CHECK( std::find( radio.calls.begin(), radio.calls.end(), "ReadBuffer") == radio.calls.end());
     CHECK( std::find( radio.calls.begin(), radio.calls.end(), "StartRx") != radio.calls.end());
 }
 
@@ -347,7 +347,7 @@ TEST_CASE("controller starts halted")
     using Controller = SX126xController< MockRadio, SX126xRadioConfig, MockRxBuffer >;
     Controller uut(radio, cfg, rx);
 
-    CHECK( uut.state() == Controller::SX126xState::HALT);
+    CHECK( uut.state() == Controller::SX126xState::STANDBY);
 
     CHECK( uut.busy());
 
@@ -365,7 +365,7 @@ TEST_CASE("start enters RX")
 
     uut.start();
 
-    CHECK( uut.state() == Controller::SX126xState::RX);
+    CHECK( uut.state() == Controller::SX126xState::RX_IDLE);
     CHECK_FALSE( uut.busy());
     REQUIRE( radio.calls.size() == 2);
     CHECK( radio.calls[0] == "SetPacketParams");
@@ -388,7 +388,7 @@ TEST_CASE("stop enters HALT")
 
     uut.stop();
 
-    CHECK( uut.state() == Controller::SX126xState::HALT);
+    CHECK( uut.state() == Controller::SX126xState::STANDBY);
     CHECK( uut.busy());
     REQUIRE( radio.calls.size() == 1);
     CHECK( radio.calls[0] == "SetStandby");
@@ -456,6 +456,6 @@ TEST_CASE("TX_DONE returns controller to RX")
     uut.notify_irq();
     uut.process();
 
-    CHECK( uut.state() == Controller::SX126xState::RX);
+    CHECK( uut.state() == Controller::SX126xState::RX_IDLE);
     CHECK_FALSE( uut.busy());
 }
