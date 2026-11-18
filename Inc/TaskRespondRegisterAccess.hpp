@@ -39,6 +39,8 @@ private:
         return max_sz;
     }
 
+    void log_register_value(std::string_view name, const uavcan_register_Value_1_0& val);
+
 protected:
     Registry& registry_;
     Store&    store_;
@@ -81,16 +83,17 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::handleTaskImpl()
         const size_t name_len = std::min(request.name.name.count, sizeof(request.name.name.elements));
         const std::string_view name(reinterpret_cast<const char*>(request.name.name.elements), name_len);
 
-        log(LOG_LEVEL_INFO, "TaskRespondRegisterAccess: %4d %4d\r\n",
-            transfer->metadata.remote_node_id,
-            transfer->metadata.transfer_kind);
+        log(LOG_LEVEL_INFO, "TaskRespondRegisterAccess: %4d %4d %.*s\r\n", transfer->metadata.remote_node_id, transfer->metadata.transfer_kind,
+        		static_cast<int>(name.size()), name.data());
 
         uavcan_register_Access_Response_1_0 data{};
         const auto* reg = registry_.lookup(name);
 
+
         if (!reg)
         {
-            // Unknown register
+        	log(LOG_LEVEL_ERROR, "TaskRespondRegisterAccess: lookup error %.*s\r\n", static_cast<int>(name.size()), name.data());
+        	// Unknown register
             uavcan_register_Value_1_0_select_empty_(&data.value);
             data._mutable   = false;
             data.persistent = false;
@@ -126,6 +129,8 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::handleTaskImpl()
             }
         }
 
+        log_register_value(name, data.value);
+
         constexpr size_t PAYLOAD_SIZE = uavcan_register_Access_Response_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
         uint8_t payload[PAYLOAD_SIZE]{};
 
@@ -156,6 +161,46 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::unregisterTask(Reg
                                                                              std::shared_ptr<Task> task)
 {
     manager->unserver(uavcan_register_Access_1_0_FIXED_PORT_ID_, task);
+}
+
+template <typename Registry, typename Store, typename... Adapters>
+void TaskRespondRegisterAccess<Registry, Store, Adapters...>::log_register_value(std::string_view name, 
+                                                                                  const uavcan_register_Value_1_0& val)
+{
+    if (uavcan_register_Value_1_0_is_empty_(&val))
+    {
+        log(LOG_LEVEL_INFO, "Reg[%.*s] = <empty>\r\n", static_cast<int>(name.size()), name.data());
+    }
+    else if (uavcan_register_Value_1_0_is_natural32_(&val) && val.natural32.value.count > 0)
+    {
+        log(LOG_LEVEL_INFO, "Reg[%.*s] = u32:%lu (count=%u)\r\n",
+            static_cast<int>(name.size()), name.data(),
+            static_cast<unsigned long>(val.natural32.value.elements[0]),
+            static_cast<unsigned>(val.natural32.value.count));
+    }
+    else if (uavcan_register_Value_1_0_is_natural64_(&val) && val.natural64.value.count > 0)
+    {
+        log(LOG_LEVEL_INFO, "Reg[%.*s] = u64:%llu (count=%u)\r\n",
+            static_cast<int>(name.size()), name.data(),
+            static_cast<unsigned long long>(val.natural64.value.elements[0]),
+            static_cast<unsigned>(val.natural64.value.count));
+    }
+    else if (uavcan_register_Value_1_0_is_real32_(&val) && val.real32.value.count > 0)
+    {
+        // Note: %f requires -u _printf_float with nano.specs; %d.%03d avoids it
+        const float f = val.real32.value.elements[0];
+        const int whole = static_cast<int>(f);
+        const int frac  = static_cast<int>((f - static_cast<float>(whole)) * 1000.0f);
+        log(LOG_LEVEL_INFO, "Reg[%.*s] = f32:%d.%03d\r\n",
+            static_cast<int>(name.size()), name.data(),
+            whole, frac < 0 ? -frac : frac);
+    }
+    else if (uavcan_register_Value_1_0_is_unstructured_(&val))
+    {
+        log(LOG_LEVEL_INFO, "Reg[%.*s] = unstructured (%u bytes)\r\n",
+            static_cast<int>(name.size()), name.data(),
+            static_cast<unsigned>(val.unstructured.value.count));
+    }
 }
 
 #endif /* _TASKRESPONDREGISTERACCESS_HPP_ */
