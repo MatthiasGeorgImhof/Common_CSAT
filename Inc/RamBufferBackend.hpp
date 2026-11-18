@@ -5,9 +5,9 @@
 #include <cstring>
 #include <limits>
 
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "RamMramMock.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RamStorageMock.hpp"
 
 class RamBufferBackend
 {
@@ -15,12 +15,12 @@ public:
     RamBufferBackend(std::uint8_t* base, std::size_t total_size)
         : base_(base), total_size_(total_size) {}
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
-        if (!base_ || !mram_validate_range(entry, offset, len))
+        if (!base_ || !validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > total_size_ ||
             offset > total_size_ - entry.offset ||
@@ -35,12 +35,12 @@ public:
         return true;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
-        if (!base_ || !mram_validate_range(entry, offset, len))
+        if (!base_ || !validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > total_size_ ||
             offset > total_size_ - entry.offset ||
@@ -60,20 +60,20 @@ private:
     std::size_t   total_size_;
 };
 
-static_assert(MramStorageBackend<RamBufferBackend>);
+static_assert(StorageBackend<RamBufferBackend>);
 
 template <std::size_t Size>
 class RamMockBackend
 {
 public:
-    explicit RamMockBackend(RamMramMock<Size>& mock) : mock_(mock) {}
+    explicit RamMockBackend(RamStorageMock<Size>& mock) : mock_(mock) {}
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > Size ||
             offset > Size - entry.offset ||
@@ -98,12 +98,12 @@ public:
         return true;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > Size ||
             offset > Size - entry.offset ||
@@ -129,5 +129,5 @@ public:
     }
 
 private:
-    RamMramMock<Size>& mock_;
+    RamStorageMock<Size>& mock_;
 };

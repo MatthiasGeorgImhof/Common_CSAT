@@ -8,12 +8,12 @@
 #include <cstring>
 #include <span>
 
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
-#include "MramWriteStream.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
+#include "StoreWriteStream.hpp"
 #include "RamBufferBackend.hpp"
-#include "RamMramMock.hpp"
+#include "RamStorageMock.hpp"
 
 bool is_all_val(std::span<const std::uint8_t> buf, std::uint8_t scalar)
 {
@@ -31,15 +31,15 @@ struct mram_state_t  { std::uint8_t b[8]; };
 // ------------------------------------------------------------
 struct MramLayout
 {
-    MramRecord<mram_config_t> config;
-    MramRecord<mram_state_t>  state;
+    StorageRecord<mram_config_t> config;
+    StorageRecord<mram_state_t>  state;
 };
 
 // ------------------------------------------------------------
 // Member list
 // ------------------------------------------------------------
 template <>
-struct MramLayoutMembers<MramLayout>
+struct LayoutMembers<MramLayout>
 {
     static constexpr auto members = std::make_tuple(
         &MramLayout::config,
@@ -51,7 +51,7 @@ struct MramLayoutMembers<MramLayout>
 // Traits
 // ------------------------------------------------------------
 template <>
-struct MramTraits<mram_config_t, MramLayout>
+struct RecordTraits<mram_config_t, MramLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(MramLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -60,7 +60,7 @@ struct MramTraits<mram_config_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_state_t, MramLayout>
+struct RecordTraits<mram_state_t, MramLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(MramLayout, state);
     static constexpr std::uint32_t version = 2;
@@ -80,24 +80,24 @@ public:
 
     FailingWriteStreamBackend() { storage.fill(0xFF); }
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
-        if (fail_read || !mram_validate_range(entry, offset, len))
+        if (fail_read || !validate_record_range(entry, offset, len))
             return false;
         if (len > 0)
             std::memcpy(dst, storage.data() + entry.offset + offset, len);
         return true;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
-        if (fail_write || !mram_validate_range(entry, offset, len))
+        if (fail_write || !validate_record_range(entry, offset, len))
             return false;
         if (len > 0)
             std::memcpy(storage.data() + entry.offset + offset, src, len);
@@ -105,7 +105,7 @@ public:
     }
 };
 
-static_assert(MramStorageBackend<FailingWriteStreamBackend>);
+static_assert(StorageBackend<FailingWriteStreamBackend>);
 
 // ------------------------------------------------------------
 // Helper: convert string to NAME_LENGTH array
@@ -120,11 +120,11 @@ std::array<char, NAME_LENGTH> makePath(const char* s)
 // ------------------------------------------------------------
 // Tests with RamBufferBackend (RawRecord mode)
 // ------------------------------------------------------------
-TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): initialize finds correct entry")
+TEST_CASE("StoreWriteStream (RamBufferBackend, RawRecord): initialize finds correct entry")
 {
     std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
     RamBufferBackend backend(buffer.data(), buffer.size());
-    MramWriteStream<MramLayout, RamBufferBackend> stream(backend, MramStreamMode::RawRecord);
+    StoreWriteStream<MramLayout, RamBufferBackend> stream(backend, RecordAccessMode::RawRecord);
 
     CHECK(stream.initialize(makePath("config")) == true);
     CHECK(stream.initialize(makePath("state")) == true);
@@ -136,11 +136,11 @@ TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): initialize finds corre
     CHECK(stream.initialize(full_name) == false);
 }
 
-TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): output writes chunked raw bytes at correct offset")
+TEST_CASE("StoreWriteStream (RamBufferBackend, RawRecord): output writes chunked raw bytes at correct offset")
 {
     std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
     RamBufferBackend backend(buffer.data(), buffer.size());
-    MramWriteStream<MramLayout, RamBufferBackend> stream(backend, MramStreamMode::RawRecord);
+    StoreWriteStream<MramLayout, RamBufferBackend> stream(backend, RecordAccessMode::RawRecord);
 
     REQUIRE(stream.initialize(makePath("state")) == true);
 
@@ -150,21 +150,21 @@ TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): output writes chunked 
     CHECK(stream.output(chunk2, sizeof(chunk2)) == true);
     CHECK(stream.finalize() == true);
 
-    const std::uint8_t* state_base = buffer.data() + MramTraits<mram_state_t, MramLayout>::offset;
+    const std::uint8_t* state_base = buffer.data() + RecordTraits<mram_state_t, MramLayout>::offset;
     CHECK(state_base[0] == 1);
     CHECK(state_base[2] == 3);
     CHECK(state_base[3] == 4);
     CHECK(state_base[5] == 6);
 
     // Adjacent config record remains untouched
-    CHECK(is_all_val(std::span(buffer.data(), sizeof(MramRecord<mram_config_t>)), 0));
+    CHECK(is_all_val(std::span(buffer.data(), sizeof(StorageRecord<mram_config_t>)), 0));
 }
 
-TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): rejects overflow and null data")
+TEST_CASE("StoreWriteStream (RamBufferBackend, RawRecord): rejects overflow and null data")
 {
     std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
     RamBufferBackend backend(buffer.data(), buffer.size());
-    MramWriteStream<MramLayout, RamBufferBackend> stream(backend, MramStreamMode::RawRecord);
+    StoreWriteStream<MramLayout, RamBufferBackend> stream(backend, RecordAccessMode::RawRecord);
 
     REQUIRE(stream.initialize(makePath("config")) == true);
 
@@ -178,11 +178,11 @@ TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): rejects overflow and n
     CHECK(is_all_val(buffer, 0));
 }
 
-TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): finalize resets state")
+TEST_CASE("StoreWriteStream (RamBufferBackend, RawRecord): finalize resets state")
 {
     std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
     RamBufferBackend backend(buffer.data(), buffer.size());
-    MramWriteStream<MramLayout, RamBufferBackend> stream(backend, MramStreamMode::RawRecord);
+    StoreWriteStream<MramLayout, RamBufferBackend> stream(backend, RecordAccessMode::RawRecord);
 
     // Finalize before initialize fails
     CHECK(stream.finalize() == false);
@@ -198,25 +198,25 @@ TEST_CASE("MramWriteStream (RamBufferBackend, RawRecord): finalize resets state"
 // ------------------------------------------------------------
 // Tests with RamMockBackend (RawRecord mode)
 // ------------------------------------------------------------
-TEST_CASE("MramWriteStream (RamMockBackend, RawRecord): writes to mock MRAM and rejects overflow")
+TEST_CASE("StoreWriteStream (RamMockBackend, RawRecord): writes to mock MRAM and rejects overflow")
 {
-    RamMramMock<sizeof(MramLayout)> mock;
+    RamStorageMock<sizeof(MramLayout)> mock;
     RamMockBackend backend(mock);
-    MramWriteStream<MramLayout, decltype(backend)> stream(backend, MramStreamMode::RawRecord);
+    StoreWriteStream<MramLayout, decltype(backend)> stream(backend, RecordAccessMode::RawRecord);
 
     REQUIRE(stream.initialize(makePath("state")) == true);
 
     const std::uint8_t data[4] = {0xAA, 0xBB, 0xCC, 0xDD};
     CHECK(stream.output(data, sizeof(data)) == true);
 
-    const std::uint8_t* state_base = mock.data() + MramTraits<mram_state_t, MramLayout>::offset;
+    const std::uint8_t* state_base = mock.data() + RecordTraits<mram_state_t, MramLayout>::offset;
     CHECK(state_base[0] == 0xAA);
     CHECK(state_base[1] == 0xBB);
     CHECK(state_base[2] == 0xCC);
     CHECK(state_base[3] == 0xDD);
 
     // Overflow write rejected without corrupting remaining bytes
-    std::uint8_t too_big[sizeof(MramRecord<mram_state_t>)]{};
+    std::uint8_t too_big[sizeof(StorageRecord<mram_state_t>)]{};
     CHECK(stream.output(too_big, sizeof(too_big)) == false);
     CHECK(state_base[4] == 0xFF);
 
@@ -225,14 +225,14 @@ TEST_CASE("MramWriteStream (RamMockBackend, RawRecord): writes to mock MRAM and 
 }
 
 // ------------------------------------------------------------
-// Tests in PayloadOnly mode + MramStore interoperability
+// Tests in PayloadOnly mode + RecordStore interoperability
 // ------------------------------------------------------------
-TEST_CASE("MramWriteStream (PayloadOnly): streams payload chunks, commits header, and interoperates with MramStore")
+TEST_CASE("StoreWriteStream (PayloadOnly): streams payload chunks, commits header, and interoperates with RecordStore")
 {
-    RamMramMock<sizeof(MramLayout)> mock;
+    RamStorageMock<sizeof(MramLayout)> mock;
     RamMockBackend backend(mock);
-    MramStore<MramLayout, decltype(backend)> store(backend);
-    MramWriteStream<MramLayout, decltype(backend)> stream(backend, MramStreamMode::PayloadOnly);
+    RecordStore<MramLayout, decltype(backend)> store(backend);
+    StoreWriteStream<MramLayout, decltype(backend)> stream(backend, RecordAccessMode::PayloadOnly);
 
     // 1. Stream config payload in two 2-byte chunks
     REQUIRE(stream.initialize(makePath("config")) == true);
@@ -248,8 +248,8 @@ TEST_CASE("MramWriteStream (PayloadOnly): streams payload chunks, commits header
     REQUIRE(stream.output(part2, sizeof(part2)) == true);
     REQUIRE(stream.finalize() == true);
 
-    // MramStore reads back valid record with version=1, seq=1
-    MramRecord<mram_config_t> rec{};
+    // RecordStore reads back valid record with version=1, seq=1
+    StorageRecord<mram_config_t> rec{};
     REQUIRE(store.get_record(rec) == true);
     CHECK(rec.version == 1);
     CHECK(rec.seq == 1);
@@ -269,7 +269,7 @@ TEST_CASE("MramWriteStream (PayloadOnly): streams payload chunks, commits header
     CHECK(rec.payload.a[0] == 0xAA);
     CHECK(rec.payload.a[3] == 0xDD);
 
-    // 3. MramStore::set followed by MramWriteStream continues seq numbering
+    // 3. RecordStore::set followed by StoreWriteStream continues seq numbering
     REQUIRE(store.set(mram_state_t{{1, 2, 3, 4, 5, 6, 7, 8}}) == true);
 
     REQUIRE(stream.initialize(makePath("state")) == true);
@@ -277,7 +277,7 @@ TEST_CASE("MramWriteStream (PayloadOnly): streams payload chunks, commits header
     REQUIRE(stream.output(new_state, sizeof(new_state)) == true);
     REQUIRE(stream.finalize() == true);
 
-    MramRecord<mram_state_t> st_rec{};
+    StorageRecord<mram_state_t> st_rec{};
     REQUIRE(store.get_record(st_rec) == true);
     CHECK(st_rec.version == 2);
     CHECK(st_rec.seq == 2);
@@ -285,15 +285,15 @@ TEST_CASE("MramWriteStream (PayloadOnly): streams payload chunks, commits header
     CHECK(st_rec.payload.b[7] == 1);
 }
 
-TEST_CASE("MramWriteStream (PayloadOnly): enforces payload_size bounds and rejects incomplete finalize")
+TEST_CASE("StoreWriteStream (PayloadOnly): enforces payload_size bounds and rejects incomplete finalize")
 {
     std::array<std::uint8_t, sizeof(MramLayout)> buffer{};
     buffer.fill(0xFF);
     RamBufferBackend backend(buffer.data(), buffer.size());
-    MramStore<MramLayout, RamBufferBackend> store(backend);
-    MramWriteStream<MramLayout, RamBufferBackend> stream(backend, MramStreamMode::PayloadOnly);
+    RecordStore<MramLayout, RamBufferBackend> store(backend);
+    StoreWriteStream<MramLayout, RamBufferBackend> stream(backend, RecordAccessMode::PayloadOnly);
 
-    SUBCASE("Rejects writes exceeding payload_size (even if smaller than MramRecord size)")
+    SUBCASE("Rejects writes exceeding payload_size (even if smaller than StorageRecord size)")
     {
         REQUIRE(stream.initialize(makePath("config")) == true);
         const std::uint8_t too_much[6] = {1, 2, 3, 4, 5, 6}; // payload_size is 4, record size is 20
@@ -318,10 +318,10 @@ TEST_CASE("MramWriteStream (PayloadOnly): enforces payload_size bounds and rejec
 // ------------------------------------------------------------
 // FailingBackend tests
 // ------------------------------------------------------------
-TEST_CASE("MramWriteStream (FailingBackend): propagates backend write and read failures")
+TEST_CASE("StoreWriteStream (FailingBackend): propagates backend write and read failures")
 {
     FailingWriteStreamBackend backend;
-    MramWriteStream<MramLayout, FailingWriteStreamBackend> stream(backend, MramStreamMode::PayloadOnly);
+    StoreWriteStream<MramLayout, FailingWriteStreamBackend> stream(backend, RecordAccessMode::PayloadOnly);
 
     SUBCASE("Write failure during output does not advance offset")
     {

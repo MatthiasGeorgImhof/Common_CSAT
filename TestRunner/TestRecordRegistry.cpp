@@ -1,6 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "Mram.hpp"
+#include "RecordRegistry.hpp"
 #include <type_traits>
 
 // ------------------------------------------------------------
@@ -17,17 +17,17 @@ struct mram_unused_t  { int e; };
 // ------------------------------------------------------------
 struct MramLayout
 {
-    MramRecord<mram_config_t>   config;
-    MramRecord<mram_command_t>  command;
-    MramRecord<mram_state_t>    state;
-    MramRecord<mram_log_t>      log;
+    StorageRecord<mram_config_t>   config;
+    StorageRecord<mram_command_t>  command;
+    StorageRecord<mram_state_t>    state;
+    StorageRecord<mram_log_t>      log;
 };
 
 // ------------------------------------------------------------
 // Mission-specific member list
 // ------------------------------------------------------------
 template <>
-struct MramLayoutMembers<MramLayout>
+struct LayoutMembers<MramLayout>
 {
     static constexpr auto members = std::make_tuple(
         &MramLayout::config,
@@ -41,7 +41,7 @@ struct MramLayoutMembers<MramLayout>
 // Mission-specific traits
 // ------------------------------------------------------------
 template <>
-struct MramTraits<mram_config_t, MramLayout>
+struct RecordTraits<mram_config_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, config);
     static constexpr uint32_t version = 1;
@@ -50,7 +50,7 @@ struct MramTraits<mram_config_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_command_t, MramLayout>
+struct RecordTraits<mram_command_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, command);
     static constexpr uint32_t version = 1;
@@ -59,7 +59,7 @@ struct MramTraits<mram_command_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_state_t, MramLayout>
+struct RecordTraits<mram_state_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, state);
     static constexpr uint32_t version = 1;
@@ -68,7 +68,7 @@ struct MramTraits<mram_state_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_log_t, MramLayout>
+struct RecordTraits<mram_log_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, log);
     static constexpr uint32_t version = 1;
@@ -94,106 +94,106 @@ struct InvalidTraitsBadNameType
     static constexpr int name = 42;
 };
 
-static_assert(MramTraitsConcept<MramTraits<mram_config_t, MramLayout>>);
-static_assert(!MramTraitsConcept<InvalidTraitsMissingName>);
-static_assert(!MramTraitsConcept<InvalidTraitsBadNameType>);
+static_assert(RecordTraitsConcept<RecordTraits<mram_config_t, MramLayout>>);
+static_assert(!RecordTraitsConcept<InvalidTraitsMissingName>);
+static_assert(!RecordTraitsConcept<InvalidTraitsBadNameType>);
 
-static_assert(std::is_same_v<payload_of<MramRecord<mram_config_t>>::type, mram_config_t>);
+static_assert(std::is_same_v<payload_of<StorageRecord<mram_config_t>>::type, mram_config_t>);
 static_assert(std::is_same_v<member_payload<MramLayout, decltype(&MramLayout::state)>::type, mram_state_t>);
 
 static_assert(compute_member_index<MramLayout, mram_config_t>() == 0);
 static_assert(compute_member_index<MramLayout, mram_log_t>() == 3);
 static_assert(compute_member_index<MramLayout, mram_unused_t>() == static_cast<std::size_t>(-1));
 
-static_assert(MramRegistry<MramLayout>::lookup("state") != nullptr);
-static_assert(MramRegistry<MramLayout>::lookup("state")->index == 2);
-static_assert(MramRegistry<MramLayout>::lookup_by_index(1) != nullptr);
-static_assert(MramRegistry<MramLayout>::lookup_by_index(1)->offset == offsetof(MramLayout, command));
-static_assert(MramRegistry<MramLayout>::lookup_by_index(99) == nullptr);
-static_assert(MramRegistry<MramLayout>::entry_for<mram_command_t>().index == 1);
+static_assert(RecordRegistry<MramLayout>::lookup("state") != nullptr);
+static_assert(RecordRegistry<MramLayout>::lookup("state")->index == 2);
+static_assert(RecordRegistry<MramLayout>::lookup_by_index(1) != nullptr);
+static_assert(RecordRegistry<MramLayout>::lookup_by_index(1)->offset == offsetof(MramLayout, command));
+static_assert(RecordRegistry<MramLayout>::lookup_by_index(99) == nullptr);
+static_assert(RecordRegistry<MramLayout>::entry_for<mram_command_t>().index == 1);
 
 // ------------------------------------------------------------
 // Tests for traits
 // ------------------------------------------------------------
-TEST_CASE("MramTraits resolves correct offsets")
+TEST_CASE("RecordTraits resolves correct offsets")
 {
     using L = MramLayout;
 
-    CHECK(MramTraits<mram_config_t, L>::offset == offsetof(L, config));
-    CHECK(MramTraits<mram_command_t, L>::offset == offsetof(L, command));
-    CHECK(MramTraits<mram_state_t, L>::offset == offsetof(L, state));
-    CHECK(MramTraits<mram_log_t, L>::offset == offsetof(L, log));
+    CHECK(RecordTraits<mram_config_t, L>::offset == offsetof(L, config));
+    CHECK(RecordTraits<mram_command_t, L>::offset == offsetof(L, command));
+    CHECK(RecordTraits<mram_state_t, L>::offset == offsetof(L, state));
+    CHECK(RecordTraits<mram_log_t, L>::offset == offsetof(L, log));
 }
 
-TEST_CASE("MramTraits resolves correct versions")
+TEST_CASE("RecordTraits resolves correct versions")
 {
     using L = MramLayout;
 
-    CHECK(MramTraits<mram_config_t, L>::version == 1);
-    CHECK(MramTraits<mram_command_t, L>::version == 1);
-    CHECK(MramTraits<mram_state_t, L>::version == 1);
-    CHECK(MramTraits<mram_log_t, L>::version == 1);
+    CHECK(RecordTraits<mram_config_t, L>::version == 1);
+    CHECK(RecordTraits<mram_command_t, L>::version == 1);
+    CHECK(RecordTraits<mram_state_t, L>::version == 1);
+    CHECK(RecordTraits<mram_log_t, L>::version == 1);
 }
 
-TEST_CASE("MramTraits resolves correct member index")
+TEST_CASE("RecordTraits resolves correct member index")
 {
     using L = MramLayout;
 
-    CHECK(MramTraits<mram_config_t, L>::index == 0);
-    CHECK(MramTraits<mram_command_t, L>::index == 1);
-    CHECK(MramTraits<mram_state_t, L>::index == 2);
-    CHECK(MramTraits<mram_log_t, L>::index == 3);
+    CHECK(RecordTraits<mram_config_t, L>::index == 0);
+    CHECK(RecordTraits<mram_command_t, L>::index == 1);
+    CHECK(RecordTraits<mram_state_t, L>::index == 2);
+    CHECK(RecordTraits<mram_log_t, L>::index == 3);
 }
 
 // ------------------------------------------------------------
-// Tests for MramRegistry
+// Tests for RecordRegistry
 // ------------------------------------------------------------
-TEST_CASE("MramRegistry builds correct number of entries")
+TEST_CASE("RecordRegistry builds correct number of entries")
 {
-    constexpr auto& entries = MramRegistry<MramLayout>::entries;
+    constexpr auto& entries = RecordRegistry<MramLayout>::entries;
     CHECK(entries.size() == 4);
 }
 
-TEST_CASE("MramRegistry entries match MramTraits")
+TEST_CASE("RecordRegistry entries match RecordTraits")
 {
-    constexpr auto& entries = MramRegistry<MramLayout>::entries;
+    constexpr auto& entries = RecordRegistry<MramLayout>::entries;
 
     CHECK(entries[0].name           == std::string_view("config"));
-    CHECK(entries[0].offset         == MramTraits<mram_config_t, MramLayout>::offset);
-    CHECK(entries[0].size           == sizeof(MramRecord<mram_config_t>));
-    CHECK(entries[0].payload_offset == offsetof(MramRecord<mram_config_t>, payload));
+    CHECK(entries[0].offset         == RecordTraits<mram_config_t, MramLayout>::offset);
+    CHECK(entries[0].size           == sizeof(StorageRecord<mram_config_t>));
+    CHECK(entries[0].payload_offset == offsetof(StorageRecord<mram_config_t>, payload));
     CHECK(entries[0].payload_size   == sizeof(mram_config_t));
     CHECK(entries[0].index          == 0);
     CHECK(entries[0].version        == 1);
 
     CHECK(entries[1].name           == std::string_view("command"));
-    CHECK(entries[1].offset         == MramTraits<mram_command_t, MramLayout>::offset);
-    CHECK(entries[1].size           == sizeof(MramRecord<mram_command_t>));
-    CHECK(entries[1].payload_offset == offsetof(MramRecord<mram_command_t>, payload));
+    CHECK(entries[1].offset         == RecordTraits<mram_command_t, MramLayout>::offset);
+    CHECK(entries[1].size           == sizeof(StorageRecord<mram_command_t>));
+    CHECK(entries[1].payload_offset == offsetof(StorageRecord<mram_command_t>, payload));
     CHECK(entries[1].payload_size   == sizeof(mram_command_t));
     CHECK(entries[1].index          == 1);
     CHECK(entries[1].version        == 1);
 
     CHECK(entries[2].name           == std::string_view("state"));
-    CHECK(entries[2].offset         == MramTraits<mram_state_t, MramLayout>::offset);
-    CHECK(entries[2].size           == sizeof(MramRecord<mram_state_t>));
-    CHECK(entries[2].payload_offset == offsetof(MramRecord<mram_state_t>, payload));
+    CHECK(entries[2].offset         == RecordTraits<mram_state_t, MramLayout>::offset);
+    CHECK(entries[2].size           == sizeof(StorageRecord<mram_state_t>));
+    CHECK(entries[2].payload_offset == offsetof(StorageRecord<mram_state_t>, payload));
     CHECK(entries[2].payload_size   == sizeof(mram_state_t));
     CHECK(entries[2].index          == 2);
     CHECK(entries[2].version        == 1);
 
     CHECK(entries[3].name           == std::string_view("log"));
-    CHECK(entries[3].offset         == MramTraits<mram_log_t, MramLayout>::offset);
-    CHECK(entries[3].size           == sizeof(MramRecord<mram_log_t>));
-    CHECK(entries[3].payload_offset == offsetof(MramRecord<mram_log_t>, payload));
+    CHECK(entries[3].offset         == RecordTraits<mram_log_t, MramLayout>::offset);
+    CHECK(entries[3].size           == sizeof(StorageRecord<mram_log_t>));
+    CHECK(entries[3].payload_offset == offsetof(StorageRecord<mram_log_t>, payload));
     CHECK(entries[3].payload_size   == sizeof(mram_log_t));
     CHECK(entries[3].index          == 3);
     CHECK(entries[3].version        == 1);
 }
 
-TEST_CASE("MramRegistry lookup by name works")
+TEST_CASE("RecordRegistry lookup by name works")
 {
-    using Reg = MramRegistry<MramLayout>;
+    using Reg = RecordRegistry<MramLayout>;
 
     auto* e0 = Reg::lookup("config");
     REQUIRE(e0 != nullptr);
@@ -215,9 +215,9 @@ TEST_CASE("MramRegistry lookup by name works")
     CHECK(Reg::lookup("") == nullptr);
 }
 
-TEST_CASE("MramRegistry lookup_by_index works")
+TEST_CASE("RecordRegistry lookup_by_index works")
 {
-    using Reg = MramRegistry<MramLayout>;
+    using Reg = RecordRegistry<MramLayout>;
 
     auto* e0 = Reg::lookup_by_index(0);
     REQUIRE(e0 != nullptr);
@@ -238,9 +238,9 @@ TEST_CASE("MramRegistry lookup_by_index works")
     CHECK(Reg::lookup_by_index(4) == nullptr);
 }
 
-TEST_CASE("MramRegistry entry_for<T> returns matching entry")
+TEST_CASE("RecordRegistry entry_for<T> returns matching entry")
 {
-    using Reg = MramRegistry<MramLayout>;
+    using Reg = RecordRegistry<MramLayout>;
 
     CHECK(&Reg::entry_for<mram_config_t>()  == &Reg::entries[0]);
     CHECK(&Reg::entry_for<mram_command_t>() == &Reg::entries[1]);
@@ -264,12 +264,12 @@ struct small_payload_t
 
 struct AlignedMramLayout
 {
-    MramRecord<small_payload_t>   first;
-    MramRecord<aligned_payload_t> second;
+    StorageRecord<small_payload_t>   first;
+    StorageRecord<aligned_payload_t> second;
 };
 
 template <>
-struct MramLayoutMembers<AlignedMramLayout>
+struct LayoutMembers<AlignedMramLayout>
 {
     static constexpr auto members = std::make_tuple(
         &AlignedMramLayout::first,
@@ -278,7 +278,7 @@ struct MramLayoutMembers<AlignedMramLayout>
 };
 
 template <>
-struct MramTraits<small_payload_t, AlignedMramLayout>
+struct RecordTraits<small_payload_t, AlignedMramLayout>
 {
     static constexpr uint32_t offset  = offsetof(AlignedMramLayout, first);
     static constexpr uint32_t version = 2;
@@ -287,7 +287,7 @@ struct MramTraits<small_payload_t, AlignedMramLayout>
 };
 
 template <>
-struct MramTraits<aligned_payload_t, AlignedMramLayout>
+struct RecordTraits<aligned_payload_t, AlignedMramLayout>
 {
     static constexpr uint32_t offset  = offsetof(AlignedMramLayout, second);
     static constexpr uint32_t version = 7;
@@ -295,20 +295,20 @@ struct MramTraits<aligned_payload_t, AlignedMramLayout>
     static constexpr const char* name = "second";
 };
 
-TEST_CASE("MramRegistry handles distinct versions and aligned payloads")
+TEST_CASE("RecordRegistry handles distinct versions and aligned payloads")
 {
-    using Reg = MramRegistry<AlignedMramLayout>;
+    using Reg = RecordRegistry<AlignedMramLayout>;
 
     const auto& first  = Reg::entry_for<small_payload_t>();
     const auto& second = Reg::entry_for<aligned_payload_t>();
 
     CHECK(first.version        == 2);
     CHECK(first.payload_size   == sizeof(small_payload_t));
-    CHECK(first.payload_offset == offsetof(MramRecord<small_payload_t>, payload));
+    CHECK(first.payload_offset == offsetof(StorageRecord<small_payload_t>, payload));
 
     CHECK(second.version        == 7);
     CHECK(second.offset         == offsetof(AlignedMramLayout, second));
     CHECK(second.payload_size   == sizeof(aligned_payload_t));
-    CHECK(second.payload_offset == offsetof(MramRecord<aligned_payload_t>, payload));
+    CHECK(second.payload_offset == offsetof(StorageRecord<aligned_payload_t>, payload));
     CHECK(second.payload_offset >= 16); // header is 4 x uint32_t, padded to 32-byte alignment
 }

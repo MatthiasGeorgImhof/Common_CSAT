@@ -6,10 +6,10 @@
 #include <string>
 #include <vector>
 
-#include "Mram.hpp"
-#include "MramRegister.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "Register.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 #include "RamBufferBackend.hpp"
 
 // ------------------------------------------------------------
@@ -46,13 +46,13 @@ struct RegBlob
 
 struct RegLayout
 {
-    MramRecord<RegConfig> config;
-    MramRecord<RegGain>   gain;
-    MramRecord<RegBlob>   blob;
+    StorageRecord<RegConfig> config;
+    StorageRecord<RegGain>   gain;
+    StorageRecord<RegBlob>   blob;
 };
 
 template <>
-struct MramLayoutMembers<RegLayout>
+struct LayoutMembers<RegLayout>
 {
     static constexpr auto members = std::make_tuple(
         &RegLayout::config,
@@ -62,7 +62,7 @@ struct MramLayoutMembers<RegLayout>
 };
 
 template <>
-struct MramTraits<RegConfig, RegLayout>
+struct RecordTraits<RegConfig, RegLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(RegLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -71,7 +71,7 @@ struct MramTraits<RegConfig, RegLayout>
 };
 
 template <>
-struct MramTraits<RegGain, RegLayout>
+struct RecordTraits<RegGain, RegLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(RegLayout, gain);
     static constexpr std::uint32_t version = 1;
@@ -80,7 +80,7 @@ struct MramTraits<RegGain, RegLayout>
 };
 
 template <>
-struct MramTraits<RegBlob, RegLayout>
+struct RecordTraits<RegBlob, RegLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(RegLayout, blob);
     static constexpr std::uint32_t version = 1;
@@ -92,7 +92,7 @@ struct MramTraits<RegBlob, RegLayout>
 // Generic unstructured fallback codec + typed specializations
 // ------------------------------------------------------------
 template <typename T>
-struct MramRegisterCodec<T, MockRegisterValue>
+struct RegisterCodec<T, MockRegisterValue>
 {
     static bool encode(const T& payload, MockRegisterValue& out)
     {
@@ -114,7 +114,7 @@ struct MramRegisterCodec<T, MockRegisterValue>
 };
 
 template <>
-struct MramRegisterCodec<RegConfig, MockRegisterValue>
+struct RegisterCodec<RegConfig, MockRegisterValue>
 {
     static bool encode(const RegConfig& payload, MockRegisterValue& out)
     {
@@ -138,7 +138,7 @@ struct MramRegisterCodec<RegConfig, MockRegisterValue>
 };
 
 template <>
-struct MramRegisterCodec<RegGain, MockRegisterValue>
+struct RegisterCodec<RegGain, MockRegisterValue>
 {
     static bool encode(const RegGain& payload, MockRegisterValue& out)
     {
@@ -159,29 +159,29 @@ struct MramRegisterCodec<RegGain, MockRegisterValue>
 };
 
 // Compile-time checks
-using RegTable = MramRegisterTable<RegLayout, MockRegisterValue>;
+using RegTable = RegisterTable<RegLayout, MockRegisterValue>;
 
-static_assert(MramRegisterCodecConcept<RegConfig, MockRegisterValue>);
-static_assert(MramRegisterCodecConcept<RegGain, MockRegisterValue>);
-static_assert(MramRegisterCodecConcept<RegBlob, MockRegisterValue>);
-static_assert(RegTable::entries.size() == 3);
+static_assert(RegisterCodecConcept<RegConfig, MockRegisterValue>);
+static_assert(RegisterCodecConcept<RegGain, MockRegisterValue>);
+static_assert(RegisterCodecConcept<RegBlob, MockRegisterValue>);
+static_assert(RegTable::registers.size() == 3);
 static_assert(RegTable::lookup("ctrl.kp") != nullptr);
-static_assert(RegTable::lookup("ctrl.kp")->mram->index == 1);
+static_assert(RegTable::lookup("ctrl.kp")->entry->index == 1);
 static_assert(RegTable::lookup_by_index(2) != nullptr);
 static_assert(RegTable::lookup_by_index(99) == nullptr);
 
 // ------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------
-TEST_CASE("MramRegisterTable: lookup and list by index")
+TEST_CASE("RegisterTable: lookup and list by index")
 {
     std::vector<std::string> names;
     for (std::size_t idx = 0;; ++idx)
     {
-        const auto* entry = RegTable::lookup_by_index(idx);
-        if (!entry)
+        const auto* r = RegTable::lookup_by_index(idx);
+        if (!r)
             break;
-        names.emplace_back(entry->mram->name);
+        names.emplace_back(r->entry->name);
     }
 
     REQUIRE(names.size() == 3);
@@ -193,7 +193,7 @@ TEST_CASE("MramRegisterTable: lookup and list by index")
     CHECK(RegTable::lookup("") == nullptr);
 }
 
-TEST_CASE("MramRegisterTable: typed encode_raw and decode_raw round-trip")
+TEST_CASE("RegisterTable: typed encode_raw and decode_raw round-trip")
 {
     const auto* cfg_reg = RegTable::lookup("can.config");
     REQUIRE(cfg_reg != nullptr);
@@ -223,7 +223,7 @@ TEST_CASE("MramRegisterTable: typed encode_raw and decode_raw round-trip")
     CHECK(out_gain.kp == doctest::Approx(2.5f));
 }
 
-TEST_CASE("MramRegisterTable: unstructured fallback codec round-trip")
+TEST_CASE("RegisterTable: unstructured fallback codec round-trip")
 {
     const auto* blob_reg = RegTable::lookup("device.uid");
     REQUIRE(blob_reg != nullptr);
@@ -239,7 +239,7 @@ TEST_CASE("MramRegisterTable: unstructured fallback codec round-trip")
     CHECK(std::memcmp(in_blob.bytes, out_blob.bytes, sizeof(RegBlob)) == 0);
 }
 
-TEST_CASE("MramRegisterTable: decode_raw rejects invalid types, sizes, values, and nullptrs")
+TEST_CASE("RegisterTable: decode_raw rejects invalid types, sizes, values, and nullptrs")
 {
     const auto* cfg_reg = RegTable::lookup("can.config");
     REQUIRE(cfg_reg != nullptr);
@@ -282,12 +282,12 @@ TEST_CASE("MramRegisterTable: decode_raw rejects invalid types, sizes, values, a
     CHECK(target.node_id  == 10);
 }
 
-TEST_CASE("MramRegisterTable: simulated OpenCyphal Access (Get/Set) with RamBufferBackend")
+TEST_CASE("RegisterTable: simulated OpenCyphal Access (Get/Set) with RamBufferBackend")
 {
-    std::array<std::uint8_t, sizeof(RegLayout)> mram_buf{};
-    mram_buf.fill(0xFF);
-    RamBufferBackend backend(mram_buf.data(), mram_buf.size());
-    MramStore<RegLayout, RamBufferBackend> store(backend);
+    std::array<std::uint8_t, sizeof(RegLayout)> reg_buf{};
+    reg_buf.fill(0xFF);
+    RamBufferBackend backend(reg_buf.data(), reg_buf.size());
+    RecordStore<RegLayout, RamBufferBackend> store(backend);
 
     // Seed initial values via C++ API
     REQUIRE(store.set(RegConfig{250000, 5}) == true);
@@ -301,13 +301,13 @@ TEST_CASE("MramRegisterTable: simulated OpenCyphal Access (Get/Set) with RamBuff
         if (req.tag != MockRegisterValue::Tag::Empty)
         {
             if (reg->decode_raw(req, scratch))
-                backend.writeRecord(*reg->mram, reg->mram->payload_offset,
-                                    scratch, reg->mram->payload_size);
+                backend.writeRecord(*reg->entry, reg->entry->payload_offset,
+                                    scratch, reg->entry->payload_size);
         }
 
         MockRegisterValue resp{};
-        if (backend.readRecord(*reg->mram, reg->mram->payload_offset,
-                               scratch, reg->mram->payload_size))
+        if (backend.readRecord(*reg->entry, reg->entry->payload_offset,
+                               scratch, reg->entry->payload_size))
         {
             reg->encode_raw(scratch, resp);
         }

@@ -1,5 +1,5 @@
-#ifndef INC_TASKRESPONDREGISTERACCESS_HPP_
-#define INC_TASKRESPONDREGISTERACCESS_HPP_
+#ifndef _TASKRESPONDREGISTERACCESS_HPP_
+#define _TASKRESPONDREGISTERACCESS_HPP_
 
 #include <algorithm>
 #include <array>
@@ -10,9 +10,9 @@
 
 #include "Task.hpp"
 #include "RegistrationManager.hpp"
-#include "Mram.hpp"
-#include "MramRegister.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "Register.hpp"
+#include "RecordStore.hpp"
 #include "Logger.hpp"
 
 #include "nunavut_assert.h"
@@ -23,14 +23,8 @@ class TaskRespondRegisterAccess : public TaskForServer<CyphalBuffer8, Adapters..
 {
 public:
     TaskRespondRegisterAccess() = delete;
-    TaskRespondRegisterAccess(Registry& registry,
-                              Store& store,
-                              uint32_t interval,
-                              uint32_t tick,
-                              std::tuple<Adapters...>& adapters)
-        : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters),
-          registry_(registry),
-          store_(store) {}
+    TaskRespondRegisterAccess(Registry& registry, Store& store, uint32_t interval, uint32_t tick, std::tuple<Adapters...>& adapters)
+        : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters), registry_(registry), store_(store) {}
 
     virtual void registerTask(RegistrationManager* manager, std::shared_ptr<Task> task) override;
     virtual void unregisterTask(RegistrationManager* manager, std::shared_ptr<Task> task) override;
@@ -40,8 +34,8 @@ private:
     static constexpr std::size_t max_payload_size()
     {
         std::size_t max_sz = 1;
-        for (const auto& e : Registry::entries)
-            max_sz = std::max(max_sz, e.mram->payload_size);
+        for (const auto& reg : Registry::registers)
+            max_sz = std::max(max_sz, reg.entry->payload_size);
         return max_sz;
     }
 
@@ -110,7 +104,7 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::handleTaskImpl()
             {
                 if (reg->decode_raw(request.value, scratch.data()))
                 {
-                    if (!store_.set_raw(*reg->mram, scratch.data()))
+                    if (!store_.set_raw(*reg->entry, scratch.data()))
                     {
                         log(LOG_LEVEL_ERROR, "TaskRespondRegisterAccess: set_raw failed\r\n");
                     }
@@ -125,7 +119,7 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::handleTaskImpl()
             data._mutable   = true;
             data.persistent = true;
 
-            if (!store_.get_raw(*reg->mram, scratch.data()) ||
+            if (!store_.get_raw(*reg->entry, scratch.data()) ||
                 !reg->encode_raw(scratch.data(), data.value))
             {
                 uavcan_register_Value_1_0_select_empty_(&data.value);
@@ -164,4 +158,4 @@ void TaskRespondRegisterAccess<Registry, Store, Adapters...>::unregisterTask(Reg
     manager->unserver(uavcan_register_Access_1_0_FIXED_PORT_ID_, task);
 }
 
-#endif /* INC_TASKRESPONDREGISTERACCESS_HPP_ */
+#endif /* _TASKRESPONDREGISTERACCESS_HPP_ */

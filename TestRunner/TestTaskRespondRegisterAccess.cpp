@@ -11,12 +11,12 @@
 #include <tuple>
 #include <type_traits>
 
-#include "Mram.hpp"
-#include "MramRegister.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "Register.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 #include "RamBufferBackend.hpp"
-#include "RamMramMock.hpp"
+#include "RamStorageMock.hpp"
 #include "TaskRespondRegisterAccess.hpp"
 #include "Task.hpp"
 #include "cyphal.hpp"
@@ -54,13 +54,13 @@ struct reg_blob_t
 
 struct TestAccessLayout
 {
-    MramRecord<reg_config_t> config;
-    MramRecord<reg_gain_t>   gain;
-    MramRecord<reg_blob_t>   blob;
+    StorageRecord<reg_config_t> config;
+    StorageRecord<reg_gain_t>   gain;
+    StorageRecord<reg_blob_t>   blob;
 };
 
 template <>
-struct MramLayoutMembers<TestAccessLayout>
+struct LayoutMembers<TestAccessLayout>
 {
     static constexpr auto members = std::make_tuple(
         &TestAccessLayout::config,
@@ -70,7 +70,7 @@ struct MramLayoutMembers<TestAccessLayout>
 };
 
 template <>
-struct MramTraits<reg_config_t, TestAccessLayout>
+struct RecordTraits<reg_config_t, TestAccessLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestAccessLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -79,7 +79,7 @@ struct MramTraits<reg_config_t, TestAccessLayout>
 };
 
 template <>
-struct MramTraits<reg_gain_t, TestAccessLayout>
+struct RecordTraits<reg_gain_t, TestAccessLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestAccessLayout, gain);
     static constexpr std::uint32_t version = 1;
@@ -88,7 +88,7 @@ struct MramTraits<reg_gain_t, TestAccessLayout>
 };
 
 template <>
-struct MramTraits<reg_blob_t, TestAccessLayout>
+struct RecordTraits<reg_blob_t, TestAccessLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestAccessLayout, blob);
     static constexpr std::uint32_t version = 1;
@@ -98,7 +98,7 @@ struct MramTraits<reg_blob_t, TestAccessLayout>
 
 // Generic unstructured fallback codec
 template <typename T>
-struct MramRegisterCodec<T, uavcan_register_Value_1_0>
+struct RegisterCodec<T, uavcan_register_Value_1_0>
 {
     static_assert(std::is_trivially_copyable_v<T>);
     static_assert(sizeof(T) <= uavcan_primitive_Unstructured_1_0_value_ARRAY_CAPACITY_);
@@ -124,7 +124,7 @@ struct MramRegisterCodec<T, uavcan_register_Value_1_0>
 
 // Typed natural32[2] codec for reg_config_t
 template <>
-struct MramRegisterCodec<reg_config_t, uavcan_register_Value_1_0>
+struct RegisterCodec<reg_config_t, uavcan_register_Value_1_0>
 {
     static bool encode(const reg_config_t& payload, uavcan_register_Value_1_0& out)
     {
@@ -151,7 +151,7 @@ struct MramRegisterCodec<reg_config_t, uavcan_register_Value_1_0>
 
 // Typed real32[1] codec for reg_gain_t
 template <>
-struct MramRegisterCodec<reg_gain_t, uavcan_register_Value_1_0>
+struct RegisterCodec<reg_gain_t, uavcan_register_Value_1_0>
 {
     static bool encode(const reg_gain_t& payload, uavcan_register_Value_1_0& out)
     {
@@ -255,10 +255,10 @@ TEST_CASE("TaskRespondRegisterAccess: Get on erased MRAM returns empty value wit
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    RamMramMock<sizeof(TestAccessLayout)> mock;
+    RamStorageMock<sizeof(TestAccessLayout)> mock;
     RamMockBackend backend(mock);
-    MramStore<TestAccessLayout, decltype(backend)> store(backend);
-    MramRegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
+    RecordStore<TestAccessLayout, decltype(backend)> store(backend);
+    RegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
 
     MockTaskRespondRegisterAccess task(registry, store, 1000, 0, adapters);
 
@@ -289,7 +289,7 @@ TEST_CASE("TaskRespondRegisterAccess: Get on erased MRAM returns empty value wit
     CHECK(uavcan_register_Value_1_0_is_empty_(&resp2.value));
 }
 
-TEST_CASE("TaskRespondRegisterAccess: Set assigns value, responds with retrieved value, and updates MramStore")
+TEST_CASE("TaskRespondRegisterAccess: Set assigns value, responds with retrieved value, and updates RecordStore")
 {
     LoopardAdapter loopard1, loopard2;
     loopard1.memory_allocate = loopardMemoryAllocate;
@@ -302,10 +302,10 @@ TEST_CASE("TaskRespondRegisterAccess: Set assigns value, responds with retrieved
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    RamMramMock<sizeof(TestAccessLayout)> mock;
+    RamStorageMock<sizeof(TestAccessLayout)> mock;
     RamMockBackend backend(mock);
-    MramStore<TestAccessLayout, decltype(backend)> store(backend);
-    MramRegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
+    RecordStore<TestAccessLayout, decltype(backend)> store(backend);
+    RegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
 
     MockTaskRespondRegisterAccess task(registry, store, 1000, 0, adapters);
 
@@ -343,8 +343,8 @@ TEST_CASE("TaskRespondRegisterAccess: Set assigns value, responds with retrieved
     CHECK(set_resp.value.natural32.value.elements[0] == 1000000);
     CHECK(set_resp.value.natural32.value.elements[1] == 42);
 
-    // Verify MramStore sees valid CRC, version, and seq == 1
-    MramRecord<reg_config_t> rec{};
+    // Verify RecordStore sees valid CRC, version, and seq == 1
+    StorageRecord<reg_config_t> rec{};
     REQUIRE(store.get_record(rec) == true);
     CHECK(rec.seq == 1);
     CHECK(rec.payload.baudrate == 1000000);
@@ -403,10 +403,10 @@ TEST_CASE("TaskRespondRegisterAccess: invalid Set preserves existing value and u
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    RamMramMock<sizeof(TestAccessLayout)> mock;
+    RamStorageMock<sizeof(TestAccessLayout)> mock;
     RamMockBackend backend(mock);
-    MramStore<TestAccessLayout, decltype(backend)> store(backend);
-    MramRegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
+    RecordStore<TestAccessLayout, decltype(backend)> store(backend);
+    RegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
 
     REQUIRE(store.set(reg_config_t{250000, 10}) == true);
 
@@ -499,10 +499,10 @@ TEST_CASE("TaskRespondRegisterAccess: registers and unregisters correctly")
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    RamMramMock<sizeof(TestAccessLayout)> mock;
+    RamStorageMock<sizeof(TestAccessLayout)> mock;
     RamMockBackend backend(mock);
-    MramStore<TestAccessLayout, decltype(backend)> store(backend);
-    MramRegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
+    RecordStore<TestAccessLayout, decltype(backend)> store(backend);
+    RegisterTable<TestAccessLayout, uavcan_register_Value_1_0> registry;
 
     auto task = std::make_shared<TaskRespondRegisterAccess<
         decltype(registry),

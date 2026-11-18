@@ -1,5 +1,5 @@
-#ifndef INC_TASKRESPONDREGISTRYLIST_HPP_
-#define INC_TASKRESPONDREGISTRYLIST_HPP_
+#ifndef _TASKRESPONDREGISTERLIST_HPP_
+#define _TASKRESPONDREGISTERLIST_HPP_
 
 #include <algorithm>
 #include <cstring>
@@ -7,7 +7,7 @@
 
 #include "Task.hpp"
 #include "RegistrationManager.hpp"
-#include "Mram.hpp"
+#include "RecordRegistry.hpp"
 #include "Logger.hpp"
 
 #include "nunavut_assert.h"
@@ -18,12 +18,8 @@ class TaskRespondRegisterList : public TaskForServer<CyphalBuffer8, Adapters...>
 {
 public:
     TaskRespondRegisterList() = delete;
-    TaskRespondRegisterList(Registry& registry,
-                            uint32_t interval,
-                            uint32_t tick,
-                            std::tuple<Adapters...>& adapters)
-        : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters),
-          registry_(registry) {}
+    TaskRespondRegisterList(Registry& registry, uint32_t interval, uint32_t tick, std::tuple<Adapters...>& adapters)
+        : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters), registry_(registry) {}
 
     virtual void registerTask(RegistrationManager* manager, std::shared_ptr<Task> task) override;
     virtual void unregisterTask(RegistrationManager* manager, std::shared_ptr<Task> task) override;
@@ -32,14 +28,14 @@ public:
 private:
     constexpr std::string_view name_at(std::size_t index) const
     {
-        const auto* entry = registry_.lookup_by_index(index);
-        if (!entry)
+        const auto* reg = registry_.lookup_by_index(index);
+        if (!reg)
             return {};
 
-        if constexpr (requires { entry->mram->name; })
-            return std::string_view(entry->mram->name);
+        if constexpr (requires { reg->entry->name; })
+            return std::string_view(reg->entry->name);
         else
-            return std::string_view(entry->name);
+            return std::string_view(reg->name);
     }
 
 protected:
@@ -123,4 +119,4 @@ void TaskRespondRegisterList<Registry, Adapters...>::unregisterTask(Registration
     manager->unserver(uavcan_register_List_1_0_FIXED_PORT_ID_, task);
 }
 
-#endif /* INC_TASKRESPONDREGISTRYLIST_HPP_ */
+#endif /* _TASKRESPONDREGISTERLIST_HPP_ */

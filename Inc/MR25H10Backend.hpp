@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <limits>
 #include "MR25H10.hpp"
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
 
 template <typename Transport,
           std::size_t MaxChunkSize = 64,
@@ -21,12 +21,12 @@ class MR25H10Backend
 public:
     explicit MR25H10Backend(MR25H10<Transport>& chip) : chip_(chip) {}
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > ChipCapacity ||
             offset > ChipCapacity - entry.offset ||
@@ -52,12 +52,12 @@ public:
         return true;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > ChipCapacity ||
             offset > ChipCapacity - entry.offset ||

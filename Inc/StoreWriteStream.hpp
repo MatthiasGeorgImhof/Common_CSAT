@@ -1,5 +1,5 @@
-#ifndef __MRAM_WRITE_STREAM_H__
-#define __MRAM_WRITE_STREAM_H__
+#ifndef __STORE_WRITE_STREAM_H__
+#define __STORE_WRITE_STREAM_H__
 
 #include <algorithm>
 #include <array>
@@ -8,22 +8,15 @@
 #include <string_view>
 
 #include "InputOutputStream.hpp"
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 
-enum class MramStreamMode
-{
-    PayloadOnly, // Streamed bytes = T; finalize() writes MramRecord header (version/seq/crc)
-    RawRecord    // Streamed bytes = raw MramRecord<T> (header + payload)
-};
-
-template <typename Layout, MramStorageBackend Backend>
-class MramWriteStream
+template <typename Layout, StorageBackend Backend>
+class StoreWriteStream
 {
 public:
-    explicit MramWriteStream(Backend& backend,
-                             MramStreamMode mode = MramStreamMode::RawRecord)
+    explicit StoreWriteStream(Backend& backend, RecordAccessMode mode = RecordAccessMode::RawRecord)
         : backend_(backend), mode_(mode) {}
 
     bool initialize(const std::array<char, NAME_LENGTH>& name)
@@ -31,14 +24,14 @@ public:
         const auto it = std::find(name.begin(), name.end(), '\0');
         const std::string_view path(name.data(), static_cast<std::size_t>(it - name.begin()));
 
-        entry_    = MramRegistry<Layout>::lookup(path);
+        entry_    = RecordRegistry<Layout>::lookup(path);
         offset_   = 0;
         next_seq_ = 1;
 
         if (!entry_)
             return false;
 
-        if (mode_ == MramStreamMode::PayloadOnly)
+        if (mode_ == RecordAccessMode::PayloadOnly)
             next_seq_ = compute_next_seq();
 
         return true;
@@ -53,10 +46,10 @@ public:
         if (!data)
             return false;
 
-        const std::size_t max_len = (mode_ == MramStreamMode::PayloadOnly)
+        const std::size_t max_len = (mode_ == RecordAccessMode::PayloadOnly)
                                         ? entry_->payload_size
                                         : entry_->size;
-        const std::size_t base_off = (mode_ == MramStreamMode::PayloadOnly)
+        const std::size_t base_off = (mode_ == RecordAccessMode::PayloadOnly)
                                          ? entry_->payload_offset
                                          : 0;
 
@@ -76,7 +69,7 @@ public:
             return false;
 
         bool ok = true;
-        if (mode_ == MramStreamMode::PayloadOnly)
+        if (mode_ == RecordAccessMode::PayloadOnly)
             ok = (offset_ == entry_->payload_size) && commit_header();
 
         entry_    = nullptr;
@@ -150,10 +143,10 @@ private:
     }
 
     Backend&                 backend_;
-    MramStreamMode           mode_;
-    const MramRegistryEntry* entry_    = nullptr;
+    RecordAccessMode           mode_;
+    const RecordRegistryEntry* entry_    = nullptr;
     std::size_t              offset_   = 0;
     std::uint32_t            next_seq_ = 1;
 };
 
-#endif // __MRAM_WRITE_STREAM_H__
+#endif // __STORE_WRITE_STREAM_H__

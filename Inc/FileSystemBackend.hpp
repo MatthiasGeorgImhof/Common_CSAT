@@ -5,8 +5,8 @@
 #include <string>
 #include <utility>
 
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
 
 class PerRecordFileBackend
 {
@@ -17,14 +17,14 @@ public:
         std::filesystem::create_directories(root_);
     }
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
         if (!entry.name || entry.name[0] == '\0')
             return false;
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (len == 0)
             return true;
@@ -43,14 +43,14 @@ public:
         return ok;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
         if (!entry.name || entry.name[0] == '\0')
             return false;
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (len == 0)
             return true;
@@ -86,7 +86,7 @@ public:
     }
 
 private:
-    std::string record_path(const MramRegistryEntry& entry) const
+    std::string record_path(const RecordRegistryEntry& entry) const
     {
         return (root_ / (std::string(entry.name) + ".bin")).string();
     }
@@ -94,7 +94,7 @@ private:
     std::filesystem::path root_;
 };
 
-static_assert(MramStorageBackend<PerRecordFileBackend>);
+static_assert(StorageBackend<PerRecordFileBackend>);
 
 class FlatFileBackend
 {
@@ -119,12 +119,12 @@ public:
         }
     }
 
-    bool readRecord(const MramRegistryEntry& entry,
+    bool readRecord(const RecordRegistryEntry& entry,
                     std::size_t offset,
                     std::uint8_t* dst,
                     std::size_t len) const
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > total_size_ ||
             offset > total_size_ - entry.offset ||
@@ -149,12 +149,12 @@ public:
         return ok;
     }
 
-    bool writeRecord(const MramRegistryEntry& entry,
+    bool writeRecord(const RecordRegistryEntry& entry,
                      std::size_t offset,
                      const std::uint8_t* src,
                      std::size_t len)
     {
-        if (!mram_validate_range(entry, offset, len))
+        if (!validate_record_range(entry, offset, len))
             return false;
         if (entry.offset > total_size_ ||
             offset > total_size_ - entry.offset ||
@@ -185,4 +185,4 @@ private:
     std::size_t           total_size_;
 };
 
-static_assert(MramStorageBackend<FlatFileBackend>);
+static_assert(StorageBackend<FlatFileBackend>);

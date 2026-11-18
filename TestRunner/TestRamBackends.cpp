@@ -7,11 +7,11 @@
 #include <limits>
 #include <vector>
 
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 #include "RamBufferBackend.hpp"
-#include "RamMramMock.hpp"
+#include "RamStorageMock.hpp"
 
 // ------------------------------------------------------------
 // Test layouts
@@ -21,12 +21,12 @@ struct SmallState  { std::uint8_t  x[12]; };
 
 struct TestLayout
 {
-    MramRecord<SmallConfig> config;
-    MramRecord<SmallState>  state;
+    StorageRecord<SmallConfig> config;
+    StorageRecord<SmallState>  state;
 };
 
 template <>
-struct MramLayoutMembers<TestLayout>
+struct LayoutMembers<TestLayout>
 {
     static constexpr auto members = std::make_tuple(
         &TestLayout::config,
@@ -35,7 +35,7 @@ struct MramLayoutMembers<TestLayout>
 };
 
 template <>
-struct MramTraits<SmallConfig, TestLayout>
+struct RecordTraits<SmallConfig, TestLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -44,7 +44,7 @@ struct MramTraits<SmallConfig, TestLayout>
 };
 
 template <>
-struct MramTraits<SmallState, TestLayout>
+struct RecordTraits<SmallState, TestLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestLayout, state);
     static constexpr std::uint32_t version = 2;
@@ -57,17 +57,17 @@ struct LargeBlob { std::uint8_t bytes[70000]; };
 
 struct LargeLayout
 {
-    MramRecord<LargeBlob> blob;
+    StorageRecord<LargeBlob> blob;
 };
 
 template <>
-struct MramLayoutMembers<LargeLayout>
+struct LayoutMembers<LargeLayout>
 {
     static constexpr auto members = std::make_tuple(&LargeLayout::blob);
 };
 
 template <>
-struct MramTraits<LargeBlob, LargeLayout>
+struct RecordTraits<LargeBlob, LargeLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(LargeLayout, blob);
     static constexpr std::uint32_t version = 1;
@@ -75,16 +75,16 @@ struct MramTraits<LargeBlob, LargeLayout>
     static constexpr const char*   name    = "blob";
 };
 
-static_assert(MramStorageBackend<RamBufferBackend>);
-static_assert(MramStorageBackend<RamMockBackend<sizeof(TestLayout)>>);
-static_assert(MramStorageBackend<RamMockBackend<sizeof(LargeLayout)>>);
+static_assert(StorageBackend<RamBufferBackend>);
+static_assert(StorageBackend<RamMockBackend<sizeof(TestLayout)>>);
+static_assert(StorageBackend<RamMockBackend<sizeof(LargeLayout)>>);
 
 // ------------------------------------------------------------
-// RamMramMock tests
+// RamStorageMock tests
 // ------------------------------------------------------------
-TEST_CASE("RamMramMock: defaults to 0xFF and supports reset")
+TEST_CASE("RamStorageMock: defaults to 0xFF and supports reset")
 {
-    RamMramMock<64> mock;
+    RamStorageMock<64> mock;
     for (std::size_t i = 0; i < mock.kSize; ++i)
         CHECK(mock.data()[i] == 0xFF);
 
@@ -93,9 +93,9 @@ TEST_CASE("RamMramMock: defaults to 0xFF and supports reset")
         CHECK(mock.data()[i] == 0x5A);
 }
 
-TEST_CASE("RamMramMock: readBytes and writeBytes round-trip and bounds checks")
+TEST_CASE("RamStorageMock: readBytes and writeBytes round-trip and bounds checks")
 {
-    RamMramMock<32> mock;
+    RamStorageMock<32> mock;
     const std::uint8_t in[4] = {0x11, 0x22, 0x33, 0x44};
     std::uint8_t out[4]{};
 
@@ -127,8 +127,8 @@ TEST_CASE("RamBufferBackend: read/write full and partial records")
     buf.fill(0xFF);
     RamBufferBackend backend(buf.data(), buf.size());
 
-    constexpr auto& cfg_entry = MramRegistry<TestLayout>::entry_for<SmallConfig>();
-    constexpr auto& st_entry  = MramRegistry<TestLayout>::entry_for<SmallState>();
+    constexpr auto& cfg_entry = RecordRegistry<TestLayout>::entry_for<SmallConfig>();
+    constexpr auto& st_entry  = RecordRegistry<TestLayout>::entry_for<SmallState>();
 
     std::vector<std::uint8_t> in(cfg_entry.size);
     for (std::size_t i = 0; i < in.size(); ++i)
@@ -152,8 +152,8 @@ TEST_CASE("RamBufferBackend: read/write full and partial records")
 TEST_CASE("RamBufferBackend: rejects null pointers, record overflow, and buffer overflow")
 {
     std::array<std::uint8_t, sizeof(TestLayout)> buf{};
-    constexpr auto& cfg_entry = MramRegistry<TestLayout>::entry_for<SmallConfig>();
-    constexpr auto& st_entry  = MramRegistry<TestLayout>::entry_for<SmallState>();
+    constexpr auto& cfg_entry = RecordRegistry<TestLayout>::entry_for<SmallConfig>();
+    constexpr auto& st_entry  = RecordRegistry<TestLayout>::entry_for<SmallState>();
 
     SUBCASE("Null base pointer")
     {
@@ -182,7 +182,7 @@ TEST_CASE("RamBufferBackend: rejects null pointers, record overflow, and buffer 
 
     SUBCASE("Backing buffer smaller than layout")
     {
-        std::array<std::uint8_t, sizeof(MramRecord<SmallConfig>) + 4> small_buf{};
+        std::array<std::uint8_t, sizeof(StorageRecord<SmallConfig>) + 4> small_buf{};
         RamBufferBackend backend(small_buf.data(), small_buf.size());
         std::vector<std::uint8_t> tmp(st_entry.size, 0x55);
 
@@ -198,10 +198,10 @@ TEST_CASE("RamBufferBackend: rejects null pointers, record overflow, and buffer 
 // ------------------------------------------------------------
 TEST_CASE("RamMockBackend: chunked read/write over 64 KiB record")
 {
-    RamMramMock<sizeof(LargeLayout)> mock;
+    RamStorageMock<sizeof(LargeLayout)> mock;
     RamMockBackend backend(mock);
 
-    constexpr auto& entry = MramRegistry<LargeLayout>::entry_for<LargeBlob>();
+    constexpr auto& entry = RecordRegistry<LargeLayout>::entry_for<LargeBlob>();
     REQUIRE(entry.size > 65535);
 
     std::vector<std::uint8_t> in(entry.size);
@@ -217,10 +217,10 @@ TEST_CASE("RamMockBackend: chunked read/write over 64 KiB record")
 
 TEST_CASE("RamMockBackend: rejects backing mock smaller than layout and invalid ranges")
 {
-    RamMramMock<sizeof(MramRecord<SmallConfig>)> tiny_mock;
+    RamStorageMock<sizeof(StorageRecord<SmallConfig>)> tiny_mock;
     RamMockBackend backend(tiny_mock);
 
-    constexpr auto& st_entry = MramRegistry<TestLayout>::entry_for<SmallState>();
+    constexpr auto& st_entry = RecordRegistry<TestLayout>::entry_for<SmallState>();
     std::uint8_t tmp[16]{};
 
     CHECK(backend.writeRecord(st_entry, 0, tmp, sizeof(tmp)) == false);
@@ -230,19 +230,19 @@ TEST_CASE("RamMockBackend: rejects backing mock smaller than layout and invalid 
 }
 
 // ------------------------------------------------------------
-// End-to-end MramStore integration with both RAM backends
+// End-to-end RecordStore integration with both RAM backends
 // ------------------------------------------------------------
-TEST_CASE("MramStore works identically with RamBufferBackend and RamMockBackend")
+TEST_CASE("RecordStore works identically with RamBufferBackend and RamMockBackend")
 {
     std::array<std::uint8_t, sizeof(TestLayout)> raw_buf{};
     raw_buf.fill(0xFF);
     RamBufferBackend buf_backend(raw_buf.data(), raw_buf.size());
 
-    RamMramMock<sizeof(TestLayout)> mock;
+    RamStorageMock<sizeof(TestLayout)> mock;
     RamMockBackend mock_backend(mock);
 
-    MramStore<TestLayout, RamBufferBackend> store1(buf_backend);
-    MramStore<TestLayout, RamMockBackend<sizeof(TestLayout)>> store2(mock_backend);
+    RecordStore<TestLayout, RamBufferBackend> store1(buf_backend);
+    RecordStore<TestLayout, RamMockBackend<sizeof(TestLayout)>> store2(mock_backend);
 
     const SmallConfig cfg{1000000, 99};
     REQUIRE(store1.set(cfg, 0x01) == true);
@@ -256,5 +256,5 @@ TEST_CASE("MramStore works identically with RamBufferBackend and RamMockBackend"
     CHECK(out1.b == cfg.b);
     CHECK(out2.a == cfg.a);
     CHECK(out2.b == cfg.b);
-    CHECK(std::memcmp(raw_buf.data(), mock.data(), sizeof(MramRecord<SmallConfig>)) == 0);
+    CHECK(std::memcmp(raw_buf.data(), mock.data(), sizeof(StorageRecord<SmallConfig>)) == 0);
 }

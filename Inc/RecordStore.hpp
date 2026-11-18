@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <concepts>
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
 
 namespace detail
 {
@@ -25,7 +25,7 @@ inline std::uint32_t crc32_update(std::uint32_t crc,
 }
 
 template <typename T>
-inline std::uint32_t compute_record_crc32(const MramRecord<T>& rec)
+inline std::uint32_t compute_record_crc32(const StorageRecord<T>& rec)
 {
     std::uint32_t crc = 0xFFFFFFFFu;
     crc = crc32_update(crc, reinterpret_cast<const std::uint8_t*>(&rec.version), sizeof(rec.version));
@@ -36,22 +36,22 @@ inline std::uint32_t compute_record_crc32(const MramRecord<T>& rec)
 }
 } // namespace detail
 
-template <typename Layout, MramStorageBackend Backend>
-class MramStore
+template <typename Layout, StorageBackend Backend>
+class RecordStore
 {
 public:
-    explicit MramStore(Backend& backend) : backend_(backend) {}
+    explicit RecordStore(Backend& backend) : backend_(backend) {}
 
     template <typename T>
-    bool get_record(MramRecord<T>& out) const
+    bool get_record(StorageRecord<T>& out) const
     {
-        constexpr const auto& entry = MramRegistry<Layout>::template entry_for<T>();
+        constexpr const auto& entry = RecordRegistry<Layout>::template entry_for<T>();
 
-        MramRecord<T> rec{};
+        StorageRecord<T> rec{};
         if (!backend_.readRecord(entry, 0, reinterpret_cast<std::uint8_t*>(&rec), sizeof(rec)))
             return false;
 
-        if (rec.version != MramTraits<T, Layout>::version)
+        if (rec.version != RecordTraits<T, Layout>::version)
             return false;
 
         if (rec.crc != detail::compute_record_crc32(rec))
@@ -64,7 +64,7 @@ public:
     template <typename T>
     bool get(T& out) const
     {
-        MramRecord<T> rec{};
+        StorageRecord<T> rec{};
         if (!get_record(rec))
             return false;
 
@@ -76,23 +76,23 @@ public:
     bool set(const T& in, std::uint32_t flags = 0)
     {
         std::uint32_t next_seq = 1;
-        MramRecord<T> prev{};
+        StorageRecord<T> prev{};
         if (get_record(prev))
             next_seq = prev.seq + 1;
 
-        MramRecord<T> rec{};
-        rec.version = MramTraits<T, Layout>::version;
+        StorageRecord<T> rec{};
+        rec.version = RecordTraits<T, Layout>::version;
         rec.seq     = next_seq;
         rec.flags   = flags;
         rec.payload = in;
         rec.crc     = detail::compute_record_crc32(rec);
 
-        constexpr const auto& entry = MramRegistry<Layout>::template entry_for<T>();
+        constexpr const auto& entry = RecordRegistry<Layout>::template entry_for<T>();
         return backend_.writeRecord(entry, 0, reinterpret_cast<const std::uint8_t*>(&rec), sizeof(rec));
     }
 
 
-    bool get_raw(const MramRegistryEntry& entry, void* payload_out) const
+    bool get_raw(const RecordRegistryEntry& entry, void* payload_out) const
     {
         if (!payload_out)
             return false;
@@ -116,7 +116,7 @@ public:
         return (crc ^ 0xFFFFFFFFu) == hdr.crc;
     }
 
-    bool set_raw(const MramRegistryEntry& entry, const void* payload_in, std::uint32_t flags = 0)
+    bool set_raw(const RecordRegistryEntry& entry, const void* payload_in, std::uint32_t flags = 0)
     {
         if (!payload_in)
             return false;

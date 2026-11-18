@@ -7,9 +7,9 @@
 #include <vector>
 
 #include "FileSystemBackend.hpp"
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 
 // ------------------------------------------------------------
 // Test layout
@@ -19,12 +19,12 @@ struct FsState  { std::uint8_t  mode;     std::int32_t  counter; };
 
 struct FsLayout
 {
-    MramRecord<FsConfig> config;
-    MramRecord<FsState>  state;
+    StorageRecord<FsConfig> config;
+    StorageRecord<FsState>  state;
 };
 
 template <>
-struct MramLayoutMembers<FsLayout>
+struct LayoutMembers<FsLayout>
 {
     static constexpr auto members = std::make_tuple(
         &FsLayout::config,
@@ -33,7 +33,7 @@ struct MramLayoutMembers<FsLayout>
 };
 
 template <>
-struct MramTraits<FsConfig, FsLayout>
+struct RecordTraits<FsConfig, FsLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(FsLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -42,7 +42,7 @@ struct MramTraits<FsConfig, FsLayout>
 };
 
 template <>
-struct MramTraits<FsState, FsLayout>
+struct RecordTraits<FsState, FsLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(FsLayout, state);
     static constexpr std::uint32_t version = 2;
@@ -79,7 +79,7 @@ TEST_CASE("PerRecordFileBackend: missing file returns false on read")
     TempDir tmp("per_rec_missing");
     PerRecordFileBackend backend(tmp.path);
 
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
     std::vector<std::uint8_t> buf(cfg_entry.size);
 
     CHECK(backend.readRecord(cfg_entry, 0, buf.data(), buf.size()) == false);
@@ -90,7 +90,7 @@ TEST_CASE("PerRecordFileBackend: partial write creates 0xFF-initialized file")
     TempDir tmp("per_rec_partial");
     PerRecordFileBackend backend(tmp.path);
 
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
     const std::uint8_t slice[4] = {0x11, 0x22, 0x33, 0x44};
 
     REQUIRE(backend.writeRecord(cfg_entry, 4, slice, sizeof(slice)) == true);
@@ -118,8 +118,8 @@ TEST_CASE("PerRecordFileBackend: isolates records and enforces bounds")
     TempDir tmp("per_rec_bounds");
     PerRecordFileBackend backend(tmp.path);
 
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
-    constexpr auto& st_entry  = MramRegistry<FsLayout>::entry_for<FsState>();
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& st_entry  = RecordRegistry<FsLayout>::entry_for<FsState>();
 
     std::vector<std::uint8_t> cfg_data(cfg_entry.size, 0xAA);
     REQUIRE(backend.writeRecord(cfg_entry, 0, cfg_data.data(), cfg_data.size()) == true);
@@ -139,13 +139,13 @@ TEST_CASE("PerRecordFileBackend: isolates records and enforces bounds")
     CHECK(backend.readRecord(cfg_entry, 0, nullptr, 0) == true);
 }
 
-TEST_CASE("PerRecordFileBackend: persists MramStore records across instances")
+TEST_CASE("PerRecordFileBackend: persists RecordStore records across instances")
 {
     TempDir tmp("per_rec_persist");
 
     {
         PerRecordFileBackend backend(tmp.path);
-        MramStore<FsLayout, PerRecordFileBackend> store(backend);
+        RecordStore<FsLayout, PerRecordFileBackend> store(backend);
 
         REQUIRE(store.set(FsConfig{115200, 7}, 0x01) == true);
         REQUIRE(store.set(FsState{3, 42}, 0x02) == true);
@@ -154,10 +154,10 @@ TEST_CASE("PerRecordFileBackend: persists MramStore records across instances")
     // Reopen in a fresh backend/store instance
     {
         PerRecordFileBackend backend(tmp.path);
-        MramStore<FsLayout, PerRecordFileBackend> store(backend);
+        RecordStore<FsLayout, PerRecordFileBackend> store(backend);
 
         FsConfig cfg{};
-        MramRecord<FsState> st_rec{};
+        StorageRecord<FsState> st_rec{};
         REQUIRE(store.get(cfg) == true);
         REQUIRE(store.get_record(st_rec) == true);
 
@@ -188,7 +188,7 @@ TEST_CASE("FlatFileBackend: initializes image with 0xFF and creates parent dirs"
     REQUIRE(std::filesystem::exists(image));
     CHECK(std::filesystem::file_size(image) == sizeof(FsLayout));
 
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
     std::vector<std::uint8_t> out(cfg_entry.size, 0);
     REQUIRE(backend.readRecord(cfg_entry, 0, out.data(), out.size()) == true);
 
@@ -202,8 +202,8 @@ TEST_CASE("FlatFileBackend: read/write round-trip, isolation, and bounds checks"
     const auto image = tmp.path / "mram.bin";
 
     FlatFileBackend backend(image, sizeof(FsLayout));
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
-    constexpr auto& st_entry  = MramRegistry<FsLayout>::entry_for<FsState>();
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& st_entry  = RecordRegistry<FsLayout>::entry_for<FsState>();
 
     std::vector<std::uint8_t> in(cfg_entry.size);
     for (std::size_t i = 0; i < in.size(); ++i)
@@ -238,9 +238,9 @@ TEST_CASE("FlatFileBackend: rejects image smaller than layout")
     TempDir tmp("flat_small");
     const auto image = tmp.path / "tiny.bin";
 
-    FlatFileBackend backend(image, sizeof(MramRecord<FsConfig>) + 2);
-    constexpr auto& cfg_entry = MramRegistry<FsLayout>::entry_for<FsConfig>();
-    constexpr auto& st_entry  = MramRegistry<FsLayout>::entry_for<FsState>();
+    FlatFileBackend backend(image, sizeof(StorageRecord<FsConfig>) + 2);
+    constexpr auto& cfg_entry = RecordRegistry<FsLayout>::entry_for<FsConfig>();
+    constexpr auto& st_entry  = RecordRegistry<FsLayout>::entry_for<FsState>();
 
     std::vector<std::uint8_t> tmp_buf(st_entry.size, 0x55);
     CHECK(backend.writeRecord(cfg_entry, 0, tmp_buf.data(), cfg_entry.size) == true);
@@ -248,14 +248,14 @@ TEST_CASE("FlatFileBackend: rejects image smaller than layout")
     CHECK(backend.readRecord(st_entry, 0, tmp_buf.data(), st_entry.size) == false);
 }
 
-TEST_CASE("FlatFileBackend: persists MramStore records across instances")
+TEST_CASE("FlatFileBackend: persists RecordStore records across instances")
 {
     TempDir tmp("flat_persist");
     const auto image = tmp.path / "mram.bin";
 
     {
         FlatFileBackend backend(image, sizeof(FsLayout));
-        MramStore<FsLayout, FlatFileBackend> store(backend);
+        RecordStore<FsLayout, FlatFileBackend> store(backend);
 
         REQUIRE(store.set(FsConfig{250000, 15}) == true);
         REQUIRE(store.set(FsConfig{500000, 16}) == true);
@@ -263,9 +263,9 @@ TEST_CASE("FlatFileBackend: persists MramStore records across instances")
 
     {
         FlatFileBackend backend(image, sizeof(FsLayout));
-        MramStore<FsLayout, FlatFileBackend> store(backend);
+        RecordStore<FsLayout, FlatFileBackend> store(backend);
 
-        MramRecord<FsConfig> rec{};
+        StorageRecord<FsConfig> rec{};
         REQUIRE(store.get_record(rec) == true);
         CHECK(rec.seq == 2);
         CHECK(rec.payload.baudrate == 500000);

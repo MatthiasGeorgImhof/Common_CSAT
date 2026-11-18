@@ -9,7 +9,7 @@
 #include <tuple>
 #include <vector>
 
-#include "Mram.hpp"
+#include "RecordRegistry.hpp"
 #include "TaskRespondRegisterList.hpp"
 #include "Task.hpp"
 #include "cyphal.hpp"
@@ -36,14 +36,14 @@ struct reg_log_t     { std::uint32_t d; };
 
 struct TestRegisterLayout
 {
-    MramRecord<reg_config_t>  config;
-    MramRecord<reg_command_t> command;
-    MramRecord<reg_state_t>   state;
-    MramRecord<reg_log_t>     log;
+    StorageRecord<reg_config_t>  config;
+    StorageRecord<reg_command_t> command;
+    StorageRecord<reg_state_t>   state;
+    StorageRecord<reg_log_t>     log;
 };
 
 template <>
-struct MramLayoutMembers<TestRegisterLayout>
+struct LayoutMembers<TestRegisterLayout>
 {
     static constexpr auto members = std::make_tuple(
         &TestRegisterLayout::config,
@@ -54,7 +54,7 @@ struct MramLayoutMembers<TestRegisterLayout>
 };
 
 template <>
-struct MramTraits<reg_config_t, TestRegisterLayout>
+struct RecordTraits<reg_config_t, TestRegisterLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestRegisterLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -63,7 +63,7 @@ struct MramTraits<reg_config_t, TestRegisterLayout>
 };
 
 template <>
-struct MramTraits<reg_command_t, TestRegisterLayout>
+struct RecordTraits<reg_command_t, TestRegisterLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestRegisterLayout, command);
     static constexpr std::uint32_t version = 1;
@@ -72,7 +72,7 @@ struct MramTraits<reg_command_t, TestRegisterLayout>
 };
 
 template <>
-struct MramTraits<reg_state_t, TestRegisterLayout>
+struct RecordTraits<reg_state_t, TestRegisterLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestRegisterLayout, state);
     static constexpr std::uint32_t version = 1;
@@ -81,7 +81,7 @@ struct MramTraits<reg_state_t, TestRegisterLayout>
 };
 
 template <>
-struct MramTraits<reg_log_t, TestRegisterLayout>
+struct RecordTraits<reg_log_t, TestRegisterLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(TestRegisterLayout, log);
     static constexpr std::uint32_t version = 1;
@@ -167,7 +167,7 @@ TEST_CASE("TaskRespondRegisterList: loops over indices until empty name and matc
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    MramRegistry<TestRegisterLayout> registry;
+    RecordRegistry<TestRegisterLayout> registry;
     MockTaskRespondRegisterList task(registry, 1000, 0, adapters);
 
     const std::vector<std::string> expected_names = {"config", "command", "state", "log"};
@@ -232,9 +232,9 @@ TEST_CASE("TaskRespondRegisterList: registers and unregisters correctly")
     loopard_cyphal2.setNodeID(12);
     std::tuple<Cyphal<LoopardAdapter>, Cyphal<LoopardAdapter>> adapters(loopard_cyphal1, loopard_cyphal2);
 
-    MramRegistry<TestRegisterLayout> registry;
+    RecordRegistry<TestRegisterLayout> registry;
     auto task = std::make_shared<TaskRespondRegisterList<
-        MramRegistry<TestRegisterLayout>,
+        RecordRegistry<TestRegisterLayout>,
         Cyphal<LoopardAdapter>,
         Cyphal<LoopardAdapter>>>(registry, 1000, 0, adapters);
 

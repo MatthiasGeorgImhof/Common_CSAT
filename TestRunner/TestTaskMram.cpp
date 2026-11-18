@@ -1,9 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include "Mram.hpp"
+#include "RecordRegistry.hpp"
 #include "TaskMram.hpp"
-#include "RamMramMock.hpp"
+#include "RamStorageMock.hpp"
 
 struct mram_config_t  { uint32_t a; };
 struct mram_command_t { uint32_t b; };
@@ -12,14 +12,14 @@ struct mram_log_t     { uint8_t  d[8]; };
 
 struct MramLayout
 {
-    MramRecord<mram_config_t>   config;
-    MramRecord<mram_command_t>  command;
-    MramRecord<mram_state_t>    state;
-    MramRecord<mram_log_t>      log;
+    StorageRecord<mram_config_t>   config;
+    StorageRecord<mram_command_t>  command;
+    StorageRecord<mram_state_t>    state;
+    StorageRecord<mram_log_t>      log;
 };
 
 template <>
-struct MramTraits<mram_config_t, MramLayout>
+struct RecordTraits<mram_config_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, config);
     static constexpr uint32_t version = 1;
@@ -28,7 +28,7 @@ struct MramTraits<mram_config_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_command_t, MramLayout>
+struct RecordTraits<mram_command_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, command);
     static constexpr uint32_t version = 1;
@@ -37,7 +37,7 @@ struct MramTraits<mram_command_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_state_t, MramLayout>
+struct RecordTraits<mram_state_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, state);
     static constexpr uint32_t version = 1;
@@ -46,7 +46,7 @@ struct MramTraits<mram_state_t, MramLayout>
 };
 
 template <>
-struct MramTraits<mram_log_t, MramLayout>
+struct RecordTraits<mram_log_t, MramLayout>
 {
     static constexpr uint32_t offset  = offsetof(MramLayout, log);
     static constexpr uint32_t version = 1;
@@ -55,16 +55,16 @@ struct MramTraits<mram_log_t, MramLayout>
 };
 
 template <typename Layout>
-std::optional<uint32_t> mram_lookup_offset(std::string_view name)
+std::optional<uint32_t> validate_record_range(std::string_view name)
 {
-    if (name == MramTraits<mram_config_t, Layout>::name)
-        return MramTraits<mram_config_t, Layout>::offset;
-    if (name == MramTraits<mram_command_t, Layout>::name)
-        return MramTraits<mram_command_t, Layout>::offset;
-    if (name == MramTraits<mram_state_t, Layout>::name)
-        return MramTraits<mram_state_t, Layout>::offset;
-    if (name == MramTraits<mram_log_t, Layout>::name)
-        return MramTraits<mram_log_t, Layout>::offset;
+    if (name == RecordTraits<mram_config_t, Layout>::name)
+        return RecordTraits<mram_config_t, Layout>::offset;
+    if (name == RecordTraits<mram_command_t, Layout>::name)
+        return RecordTraits<mram_command_t, Layout>::offset;
+    if (name == RecordTraits<mram_state_t, Layout>::name)
+        return RecordTraits<mram_state_t, Layout>::offset;
+    if (name == RecordTraits<mram_log_t, Layout>::name)
+        return RecordTraits<mram_log_t, Layout>::offset;
 
     return std::nullopt;
 }
@@ -112,41 +112,41 @@ public:
     }
 };
 
-TEST_CASE("MramTraits resolves offsets, names, and indices")
+TEST_CASE("RecordTraits resolves offsets, names, and indices")
 {
     using L = MramLayout;
 
-    CHECK(MramTraits<mram_config_t,  L>::offset == offsetof(L, config));
-    CHECK(MramTraits<mram_command_t, L>::offset == offsetof(L, command));
-    CHECK(MramTraits<mram_state_t,   L>::offset == offsetof(L, state));
-    CHECK(MramTraits<mram_log_t,     L>::offset == offsetof(L, log));
+    CHECK(RecordTraits<mram_config_t,  L>::offset == offsetof(L, config));
+    CHECK(RecordTraits<mram_command_t, L>::offset == offsetof(L, command));
+    CHECK(RecordTraits<mram_state_t,   L>::offset == offsetof(L, state));
+    CHECK(RecordTraits<mram_log_t,     L>::offset == offsetof(L, log));
 
-    CHECK(std::string_view(MramTraits<mram_config_t,  L>::name) == "config");
-    CHECK(std::string_view(MramTraits<mram_command_t, L>::name) == "command");
-    CHECK(std::string_view(MramTraits<mram_state_t,   L>::name) == "state");
-    CHECK(std::string_view(MramTraits<mram_log_t,     L>::name) == "log");
+    CHECK(std::string_view(RecordTraits<mram_config_t,  L>::name) == "config");
+    CHECK(std::string_view(RecordTraits<mram_command_t, L>::name) == "command");
+    CHECK(std::string_view(RecordTraits<mram_state_t,   L>::name) == "state");
+    CHECK(std::string_view(RecordTraits<mram_log_t,     L>::name) == "log");
 
-    CHECK(MramTraits<mram_config_t,  L>::index == 0);
-    CHECK(MramTraits<mram_command_t, L>::index == 1);
-    CHECK(MramTraits<mram_state_t,   L>::index == 2);
-    CHECK(MramTraits<mram_log_t,     L>::index == 3);
+    CHECK(RecordTraits<mram_config_t,  L>::index == 0);
+    CHECK(RecordTraits<mram_command_t, L>::index == 1);
+    CHECK(RecordTraits<mram_state_t,   L>::index == 2);
+    CHECK(RecordTraits<mram_log_t,     L>::index == 3);
 }
 
-TEST_CASE("mram_lookup_offset works")
+TEST_CASE("validate_record_range works")
 {
     using L = MramLayout;
 
-    CHECK(mram_lookup_offset<L>("config").value()  == offsetof(L, config));
-    CHECK(mram_lookup_offset<L>("command").value() == offsetof(L, command));
-    CHECK(mram_lookup_offset<L>("state").value()   == offsetof(L, state));
-    CHECK(mram_lookup_offset<L>("log").value()     == offsetof(L, log));
+    CHECK(validate_record_range<L>("config").value()  == offsetof(L, config));
+    CHECK(validate_record_range<L>("command").value() == offsetof(L, command));
+    CHECK(validate_record_range<L>("state").value()   == offsetof(L, state));
+    CHECK(validate_record_range<L>("log").value()     == offsetof(L, log));
 
-    CHECK(!mram_lookup_offset<L>("does_not_exist").has_value());
+    CHECK(!validate_record_range<L>("does_not_exist").has_value());
 }
 
-TEST_CASE("RamMramMock read/write works")
+TEST_CASE("RamStorageMock read/write works")
 {
-    RamMramMock<1024> mock;
+    RamStorageMock<1024> mock;
 
     uint8_t w[4] = {1,2,3,4};
     CHECK(mock.writeBytes(10, w, 4));
@@ -165,11 +165,11 @@ TEST_CASE("TaskMram handles file Write and Read correctly")
     // --------------------------
     // Setup
     // --------------------------
-    RamMramMock<2048> mock;
-    MramBackend<RamMramMock<2048>> backend(mock);
+    RamStorageMock<2048> mock;
+    MramBackend<RamStorageMock<2048>> backend(mock);
 
     std::tuple<> adapters;
-    MockTaskMram<RamMramMock<2048>, MramLayout> task(backend, 0, 0, adapters);
+    MockTaskMram<RamStorageMock<2048>, MramLayout> task(backend, 0, 0, adapters);
 
     // --------------------------
     // 1. Construct a Write request
@@ -198,7 +198,7 @@ TEST_CASE("TaskMram handles file Write and Read correctly")
     task.handleWrite(write_transfer);
 
     // MRAM should now contain the 4 bytes at offset(config)
-    uint32_t base = MramTraits<mram_config_t, MramLayout>::offset;
+    uint32_t base = RecordTraits<mram_config_t, MramLayout>::offset;
     uint8_t check[4]{};
     CHECK(mock.readBytes(base, check, 4));
     CHECK(check[0] == 10);

@@ -4,7 +4,7 @@
 #include "Task.hpp"
 #include "RegistrationManager.hpp"
 #include "Transport.hpp"
-#include "Mram.hpp"
+#include "RecordRegistry.hpp"
 
 #include "nunavut_assert.h"
 #include "uavcan/file/Read_1_1.h"
@@ -51,11 +51,11 @@ inline std::string_view convertPath(const uint8_t *data, std::size_t len)
 }
 
 // -----------------------------------------------------------------------------
-// Lookup MRAM offset by filename using MramRegistry + MramTraits
+// Lookup MRAM offset by filename using RecordRegistry + RecordTraits
 // -----------------------------------------------------------------------------
 // Declaration only – implemented in mission code
 template <typename Layout>
-std::optional<uint32_t> mram_lookup_offset(std::string_view name);
+std::optional<uint32_t> validate_record_range(std::string_view name);
 
 // -----------------------------------------------------------------------------
 // TaskMram: Cyphal file server backed by MRAM
@@ -154,7 +154,7 @@ protected:
 				convertPath(request.path.path.elements,
 							request.path.path.count);
 
-			auto off = mram_lookup_offset<Layout>(path);
+			auto off = validate_record_range<Layout>(path);
 
 			if (!off)
 			{
@@ -215,7 +215,7 @@ protected:
 				convertPath(request.path.path.elements,
 							request.path.path.count);
 
-			auto off = mram_lookup_offset<Layout>(path);
+			auto off = validate_record_range<Layout>(path);
 
 			if (!off)
 			{

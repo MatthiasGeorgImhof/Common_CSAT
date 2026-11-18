@@ -1,5 +1,5 @@
-#ifndef __MRAM_FILE_ACCESS_H__
-#define __MRAM_FILE_ACCESS_H__
+#ifndef __STORE_FILE_ACCESS_H__
+#define __STORE_FILE_ACCESS_H__
 
 #include <algorithm>
 #include <cstddef>
@@ -7,22 +7,15 @@
 #include <string_view>
 
 #include "FileAccess.hpp"
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 
-enum class MramFileMode
-{
-    PayloadOnly, // Reads validated payload T (requires matching version & CRC)
-    RawRecord    // Reads raw MramRecord<T> bytes (header + payload)
-};
-
-template <typename Layout, MramStorageBackend Backend>
-class MramFileAccess
+template <typename Layout, StorageBackend Backend>
+class FileAccess
 {
 public:
-    explicit MramFileAccess(const Backend& backend,
-                            MramFileMode mode = MramFileMode::RawRecord)
+    explicit FileAccess(const Backend& backend, RecordAccessMode mode = RecordAccessMode::RawRecord)
         : backend_(backend), mode_(mode) {}
 
     bool read(const FileName& path_array,
@@ -34,23 +27,23 @@ public:
         const std::string_view path(path_array.data(),
                                     static_cast<std::size_t>(it - path_array.begin()));
 
-        const auto* entry = MramRegistry<Layout>::lookup(path);
+        const auto* entry = RecordRegistry<Layout>::lookup(path);
         if (!entry)
         {
             size = 0;
             return false;
         }
 
-        if (mode_ == MramFileMode::PayloadOnly && !validate_record(*entry))
+        if (mode_ == RecordAccessMode::PayloadOnly && !validate_record(*entry))
         {
             size = 0;
             return false;
         }
 
-        const std::size_t max_len = (mode_ == MramFileMode::PayloadOnly)
+        const std::size_t max_len = (mode_ == RecordAccessMode::PayloadOnly)
                                         ? entry->payload_size
                                         : entry->size;
-        const std::size_t base_off = (mode_ == MramFileMode::PayloadOnly)
+        const std::size_t base_off = (mode_ == RecordAccessMode::PayloadOnly)
                                          ? entry->payload_offset
                                          : 0;
 
@@ -87,7 +80,7 @@ private:
         std::uint32_t flags;
     };
 
-    bool validate_record(const MramRegistryEntry& entry) const
+    bool validate_record(const RecordRegistryEntry& entry) const
     {
         Header hdr{};
         if (!backend_.readRecord(entry, 0, reinterpret_cast<std::uint8_t*>(&hdr), sizeof(hdr)))
@@ -114,7 +107,7 @@ private:
     }
 
     const Backend& backend_;
-    MramFileMode   mode_;
+    RecordAccessMode   mode_;
 };
 
-#endif // __MRAM_FILE_ACCESS_H__
+#endif // __STORE_FILE_ACCESS_H__

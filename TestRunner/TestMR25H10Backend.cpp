@@ -7,9 +7,9 @@
 
 #include "MR25H10.hpp"
 #include "MR25H10Backend.hpp"
-#include "Mram.hpp"
-#include "MramStorageBackend.hpp"
-#include "MramStore.hpp"
+#include "RecordRegistry.hpp"
+#include "StorageBackend.hpp"
+#include "RecordStore.hpp"
 #include "Transport.hpp"
 #include "mock_hal.h"
 
@@ -26,8 +26,8 @@ using Config    = SPI_Stream_Config<mock_spi, CS_Pin, 128>;
 using Transport = SPIStreamTransport<Config>;
 using SRAM      = MR25H10<Transport>;
 
-static_assert(MramStorageBackend<MR25H10Backend<Transport>>);
-static_assert(MramStorageBackend<MR25H10Backend<Transport, 8, 128 * 1024>>);
+static_assert(StorageBackend<MR25H10Backend<Transport>>);
+static_assert(StorageBackend<MR25H10Backend<Transport, 8, 128 * 1024>>);
 
 // ------------------------------------------------------------
 // Test layout
@@ -37,12 +37,12 @@ struct ChipState  { std::uint32_t counter;  };
 
 struct ChipLayout
 {
-    MramRecord<ChipConfig> config; // 20 bytes at offset 0
-    MramRecord<ChipState>  state;  // 20 bytes at offset 20
+    StorageRecord<ChipConfig> config; // 20 bytes at offset 0
+    StorageRecord<ChipState>  state;  // 20 bytes at offset 20
 };
 
 template <>
-struct MramLayoutMembers<ChipLayout>
+struct LayoutMembers<ChipLayout>
 {
     static constexpr auto members = std::make_tuple(
         &ChipLayout::config,
@@ -51,7 +51,7 @@ struct MramLayoutMembers<ChipLayout>
 };
 
 template <>
-struct MramTraits<ChipConfig, ChipLayout>
+struct RecordTraits<ChipConfig, ChipLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(ChipLayout, config);
     static constexpr std::uint32_t version = 1;
@@ -60,7 +60,7 @@ struct MramTraits<ChipConfig, ChipLayout>
 };
 
 template <>
-struct MramTraits<ChipState, ChipLayout>
+struct RecordTraits<ChipState, ChipLayout>
 {
     static constexpr std::uint32_t offset  = offsetof(ChipLayout, state);
     static constexpr std::uint32_t version = 2;
@@ -81,7 +81,7 @@ TEST_CASE("MR25H10Backend: single-chunk readRecord sends 24-bit address and read
     SRAM sram(transport);
     MR25H10Backend<Transport, 64> backend(sram);
 
-    constexpr auto& st_entry = MramRegistry<ChipLayout>::entry_for<ChipState>();
+    constexpr auto& st_entry = RecordRegistry<ChipLayout>::entry_for<ChipState>();
     std::uint8_t expected[4] = {0x12, 0x34, 0x56, 0x78};
     inject_spi_rx_data(expected, sizeof(expected));
 
@@ -107,7 +107,7 @@ TEST_CASE("MR25H10Backend: multi-chunk writeRecord splits transfers by MaxChunkS
     SRAM sram(transport);
     MR25H10Backend<Transport, 8> backend(sram); // 8-byte chunks
 
-    constexpr auto& st_entry = MramRegistry<ChipLayout>::entry_for<ChipState>();
+    constexpr auto& st_entry = RecordRegistry<ChipLayout>::entry_for<ChipState>();
     REQUIRE(st_entry.size == 20); // 8 + 8 + 4 -> 3 chunks
 
     std::vector<std::uint8_t> payload(st_entry.size);
@@ -156,7 +156,7 @@ TEST_CASE("MR25H10Backend: multi-chunk readRecord reassembles payload")
     SRAM sram(transport);
     MR25H10Backend<Transport, 8> backend(sram);
 
-    constexpr auto& cfg_entry = MramRegistry<ChipLayout>::entry_for<ChipConfig>();
+    constexpr auto& cfg_entry = RecordRegistry<ChipLayout>::entry_for<ChipConfig>();
     std::vector<std::uint8_t> expected(cfg_entry.size);
     for (std::size_t i = 0; i < expected.size(); ++i)
         expected[i] = static_cast<std::uint8_t>(0x30 + i);
@@ -177,8 +177,8 @@ TEST_CASE("MR25H10Backend: rejects invalid bounds, capacity, and null pointers w
     Transport transport(config);
     SRAM sram(transport);
 
-    constexpr auto& cfg_entry = MramRegistry<ChipLayout>::entry_for<ChipConfig>();
-    constexpr auto& st_entry  = MramRegistry<ChipLayout>::entry_for<ChipState>();
+    constexpr auto& cfg_entry = RecordRegistry<ChipLayout>::entry_for<ChipConfig>();
+    constexpr auto& st_entry  = RecordRegistry<ChipLayout>::entry_for<ChipState>();
 
     SUBCASE("Record bounds and null pointers")
     {
@@ -198,7 +198,7 @@ TEST_CASE("MR25H10Backend: rejects invalid bounds, capacity, and null pointers w
 
     SUBCASE("ChipCapacity bounds")
     {
-        MR25H10Backend<Transport, 64, sizeof(MramRecord<ChipConfig>) + 4> small_chip(sram);
+        MR25H10Backend<Transport, 64, sizeof(StorageRecord<ChipConfig>) + 4> small_chip(sram);
         std::uint8_t buf[32]{};
 
         CHECK(small_chip.writeRecord(st_entry, 0, buf, st_entry.size) == false);
@@ -207,7 +207,7 @@ TEST_CASE("MR25H10Backend: rejects invalid bounds, capacity, and null pointers w
     }
 }
 
-TEST_CASE("MR25H10Backend: integrates with MramStore get and set")
+TEST_CASE("MR25H10Backend: integrates with RecordStore get and set")
 {
     clear_spi_tx_buffer();
     clear_spi_rx_buffer();
@@ -216,11 +216,11 @@ TEST_CASE("MR25H10Backend: integrates with MramStore get and set")
     Transport transport(config);
     SRAM sram(transport);
     MR25H10Backend<Transport, 64> backend(sram);
-    MramStore<ChipLayout, decltype(backend)> store(backend);
+    RecordStore<ChipLayout, decltype(backend)> store(backend);
 
     // Prepare a valid stored record for get_record() during set()'s seq lookup
-    MramRecord<ChipConfig> existing{};
-    existing.version = MramTraits<ChipConfig, ChipLayout>::version;
+    StorageRecord<ChipConfig> existing{};
+    existing.version = RecordTraits<ChipConfig, ChipLayout>::version;
     existing.seq     = 4;
     existing.flags   = 0;
     existing.payload = ChipConfig{9600};
@@ -239,10 +239,10 @@ TEST_CASE("MR25H10Backend: integrates with MramStore get and set")
 
     REQUIRE(store.set(ChipConfig{115200}, 0x55) == true);
 
-    // TX buffer holds: READ header (4) + WREN (1) + WRITE header (4) + MramRecord (20)
+    // TX buffer holds: READ header (4) + WREN (1) + WRITE header (4) + StorageRecord (20)
     const auto* tx = get_spi_tx_buffer();
-    MramRecord<ChipConfig> written{};
-    // Last sizeof(MramRecord<ChipConfig>) bytes in TX are the written record
+    StorageRecord<ChipConfig> written{};
+    // Last sizeof(StorageRecord<ChipConfig>) bytes in TX are the written record
     const std::size_t count = get_spi_tx_buffer_count();
     REQUIRE(count >= sizeof(written));
     std::memcpy(&written, &tx[count - sizeof(written)], sizeof(written));

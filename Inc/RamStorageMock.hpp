@@ -6,15 +6,15 @@
 #include <cstring>
 
 // -----------------------------------------------------------------------------
-// RamMramMock: a deterministic, byte-addressable MRAM mock for testing
+// RamStorageMock: a deterministic, byte-addressable MRAM mock for testing
 // -----------------------------------------------------------------------------
 template <std::size_t Size>
-class RamMramMock
+class RamStorageMock
 {
 public:
     static constexpr std::size_t kSize = Size;
 
-    RamMramMock()
+    RamStorageMock()
     {
         storage_.fill(0xFF); // MRAM defaults to erased state
     }
