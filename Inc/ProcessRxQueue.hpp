@@ -79,7 +79,7 @@ public:
         using ManagedT = ManagedCyphalTransfer<Heap>;
         SafeAllocator<ManagedT, Heap> alloc;
         auto transfer_ptr = std::allocate_shared<ManagedT>(alloc, transfer);
-
+        log(LOG_LEVEL_DEBUG, "LoopManager::processTransfer: Message for port %04d\r\n", transfer.metadata.port_id);
         switch (transfer.metadata.transfer_kind)
         {
         case CyphalTransferKindMessage:

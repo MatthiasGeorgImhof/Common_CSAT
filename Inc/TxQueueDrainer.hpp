@@ -147,11 +147,18 @@ void SerialTxQueueDrainer<MTU>::drain()
             break;
         
         canardTxPop(&adapter_->que, ti);
+
         COBSFramer<MTU> framer;
         dma_frame_ = framer.serialize(ti->frame);
+
+    	constexpr size_t BUFFER_SIZE = 1024;
+    	char hex_string_buffer[BUFFER_SIZE];
+    	uchar_buffer_to_hex(reinterpret_cast<uint8_t*>(&dma_frame_), sizeof(dma_frame_), hex_string_buffer, BUFFER_SIZE);
+		log(LOG_LEVEL_DEBUG, "SerialTxQueueDrainer::drain: send %s\r\n", hex_string_buffer);
+
         auto ok = HAL_UART_Transmit_DMA(huart_, reinterpret_cast<uint8_t*>(&dma_frame_), sizeof(dma_frame_));
 
-        log(LOG_LEVEL_DEBUG, "SerialTxQueueDrainer::drain: send %d bytes mresult=%d\r\n", sizeof(dma_frame_), ok);
+        log(LOG_LEVEL_DEBUG, "SerialTxQueueDrainer::drain: %8x send %d bytes mresult=%d\r\n", ti->frame.extended_can_id, sizeof(dma_frame_), ok);
         canardTxFree(&adapter_->que, &adapter_->ins, ti);
     }
 }

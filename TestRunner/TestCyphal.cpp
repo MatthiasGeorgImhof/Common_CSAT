@@ -571,3 +571,29 @@ std::vector<uint8_t> hexToBytes(const std::string& hex) {
     }
     return bytes;
 }
+
+
+
+TEST_CASE("Canard Receive Request")
+{
+    CanardAdapter adapter;
+    adapter.ins = canardInit(canard_memory);
+    adapter.ins.node_id = 21;
+    adapter.que = canardTxInit(16, CANARD_MTU_CAN_CLASSIC, canard_memory);
+    Cyphal<CanardAdapter> cyphal(&adapter);
+
+    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindRequest, 385, 100, 2000000) == 1);
+    CHECK(cyphal.cyphalRxSubscribe(CyphalTransferKindResponse, 385, 100, 2000000) == 1);
+
+    CyphalTransfer transfer;
+
+    uint32_t extended_can_id = 0x13604af9;
+    uint8_t payload[] {0x00, 0x00, 0xe0 };
+    size_t payload_size{sizeof(payload)};
+
+    auto res = cyphal.cyphalRxReceive(extended_can_id, &payload_size, payload, &transfer);
+    CHECK(res == 1);
+
+    printf("canardRxReceive at %08u: %3d -> %3d (%4d %3d)\r\n", HAL_GetTick(),
+        		transfer.metadata.source_node_id, transfer.metadata.destination_node_id, transfer.metadata.port_id, transfer.metadata.transfer_id);
+}

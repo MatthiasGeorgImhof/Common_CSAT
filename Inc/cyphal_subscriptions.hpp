@@ -12,6 +12,8 @@
 #include "uavcan/node/port/List_1_0.h"
 #include "uavcan/node/Heartbeat_1_0.h"
 #include "uavcan/node/GetInfo_1_0.h"
+#include "uavcan/_register/List_1_0.h"
+#include "uavcan/_register/Access_1_0.h"
 #include "uavcan/diagnostic/Record_1_1.h"
 #include "uavcan/file/Read_1_1.h"
 #include "uavcan/file/Write_1_1.h"
@@ -24,31 +26,33 @@
 #include "_4111spyglass/sat/solution/OrientationSolution_0_1.h"
 #include "_4111spyglass/sat/solution/PositionSolution_0_1.h"
 
-constexpr static std::array CYPHAL_MESSAGES =
-{
-CyphalSubscription{uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, uavcan_node_Heartbeat_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{uavcan_node_port_List_1_0_FIXED_PORT_ID_, uavcan_node_port_List_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{uavcan_diagnostic_Record_1_1_FIXED_PORT_ID_, uavcan_diagnostic_Record_1_1_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{uavcan_time_Synchronization_1_0_FIXED_PORT_ID_, uavcan_time_Synchronization_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{uavcan_time_GetSynchronizationMasterInfo_0_1_FIXED_PORT_ID_, uavcan_time_GetSynchronizationMasterInfo_Request_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{_4111spyglass_sat_sensor_Magnetometer_0_1_PORT_ID_, _4111spyglass_sat_sensor_Magnetometer_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{_4111spyglass_sat_sensor_GNSS_0_1_PORT_ID_, _4111spyglass_sat_sensor_GNSS_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{_4111spyglass_sat_solution_OrientationSolution_0_1_PORT_ID_, _4111spyglass_sat_solution_OrientationSolution_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
-CyphalSubscription{_4111spyglass_sat_solution_PositionSolution_0_1_PORT_ID_, _4111spyglass_sat_solution_PositionSolution_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
+constexpr static std::array CYPHAL_MESSAGES = {
+    CyphalSubscription{uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, uavcan_node_Heartbeat_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{uavcan_node_port_List_1_0_FIXED_PORT_ID_, uavcan_node_port_List_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{uavcan_diagnostic_Record_1_1_FIXED_PORT_ID_, uavcan_diagnostic_Record_1_1_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{uavcan_time_Synchronization_1_0_FIXED_PORT_ID_, uavcan_time_Synchronization_1_0_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{_4111spyglass_sat_sensor_Magnetometer_0_1_PORT_ID_, _4111spyglass_sat_sensor_Magnetometer_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{_4111spyglass_sat_sensor_GNSS_0_1_PORT_ID_, _4111spyglass_sat_sensor_GNSS_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{_4111spyglass_sat_solution_OrientationSolution_0_1_PORT_ID_, _4111spyglass_sat_solution_OrientationSolution_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
+    CyphalSubscription{_4111spyglass_sat_solution_PositionSolution_0_1_PORT_ID_, _4111spyglass_sat_solution_PositionSolution_0_1_EXTENT_BYTES_, CyphalTransferKindMessage},
 };
 
-constexpr static std::array CYPHAL_REQUESTS =
-{
-CyphalSubscription{uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, uavcan_node_GetInfo_Request_1_0_EXTENT_BYTES_, CyphalTransferKindRequest},
-CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest},
-CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest}
+constexpr static std::array CYPHAL_REQUESTS = {
+    CyphalSubscription{uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, uavcan_node_GetInfo_Request_1_0_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_register_List_1_0_FIXED_PORT_ID_, uavcan_register_List_Request_1_0_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_register_Access_1_0_FIXED_PORT_ID_, uavcan_register_Access_Request_1_0_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_time_GetSynchronizationMasterInfo_0_1_FIXED_PORT_ID_, uavcan_time_GetSynchronizationMasterInfo_Request_0_1_EXTENT_BYTES_, CyphalTransferKindRequest},
 };
 
-constexpr static std::array CYPHAL_RESPONSES =
-{
-CyphalSubscription{uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, uavcan_node_GetInfo_Response_1_0_EXTENT_BYTES_, CyphalTransferKindResponse},
-CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse},
-CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse}
+constexpr static std::array CYPHAL_RESPONSES =  {
+    CyphalSubscription{uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, uavcan_node_GetInfo_Response_1_0_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_register_List_1_0_FIXED_PORT_ID_, uavcan_register_List_Response_1_0_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_register_Access_1_0_FIXED_PORT_ID_, uavcan_register_Access_Response_1_0_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_time_GetSynchronizationMasterInfo_0_1_FIXED_PORT_ID_, uavcan_time_GetSynchronizationMasterInfo_Response_0_1_EXTENT_BYTES_, CyphalTransferKindResponse},
 };
 
 // Template function for compile-time lookup of boolean values

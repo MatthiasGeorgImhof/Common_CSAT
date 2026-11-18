@@ -78,9 +78,10 @@ void TaskRespondRegisterList<Registry, Adapters...>::handleTaskImpl()
 
         const std::string_view name = name_at(request.index);
 
-        log(LOG_LEVEL_INFO, "TaskRespondRegisterList: %4d %4d\r\n",
+        log(LOG_LEVEL_INFO, "TaskRespondRegisterList: %4d %4d with index %d\r\n",
             transfer->metadata.remote_node_id,
-            transfer->metadata.transfer_kind);
+			transfer->metadata.transfer_id,
+			request.index);
 
         uavcan_register_List_Response_1_0 data{};
         const size_t copy_len = std::min(name.size(), sizeof(data.name.name.elements));
