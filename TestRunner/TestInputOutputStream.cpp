@@ -105,7 +105,7 @@ TEST_CASE("ImageInputStream with ImageBuffer") {
     }
 
     SUBCASE("Test name") {
-        std::array<char, NAME_LENGTH> expected_name = formatValues(metadata.timestamp, static_cast<uint8_t>(metadata.producer));
+        FileName expected_name = formatValues(metadata.timestamp, static_cast<uint8_t>(metadata.producer));
         
         CHECK(memcmp(stream.name().data(), expected_name.data(), NAME_LENGTH) == 0);
     }
@@ -199,7 +199,7 @@ TEST_CASE("ImageInputStream with CachedImageBuffer") {
     }
 
     SUBCASE("Test name") {
-        std::array<char, NAME_LENGTH> expected_name = formatValues(metadata.timestamp, static_cast<uint8_t>(metadata.producer));
+        FileName expected_name = formatValues(metadata.timestamp, static_cast<uint8_t>(metadata.producer));
         
         CHECK(memcmp(stream.name().data(), expected_name.data(), NAME_LENGTH) == 0);
     }
@@ -258,7 +258,7 @@ TEST_CASE("ImageInputStream with CachedImageBuffer") {
 
 TEST_CASE("TrivialOutputStream satisfies OutputStreamConcept") {
     TrivialOutputStream stream;
-    std::array<char, NAME_LENGTH> name = {'t', 'e', 's', 't', '.', 't', 'x', 't', 0, 0, 0};
+    FileName name = {'t', 'e', 's', 't', '.', 't', 'x', 't', 0, 0, 0};
     std::vector<uint8_t> data(10, 0);
     size_t size = data.size();
 
@@ -270,7 +270,7 @@ TEST_CASE("TrivialOutputStream satisfies OutputStreamConcept") {
 
 TEST_CASE("OutputStreamToFile satisfies OutputStreamConcept") {
     OutputStreamToFile stream;
-    std::array<char, NAME_LENGTH> name = {'t', 'e', 's', 't', '.', 't', 'x', 't', 0, 0, 0};
+    FileName name = {'t', 'e', 's', 't', '.', 't', 'x', 't', 0, 0, 0};
     std::vector<uint8_t> data(10);
     for(size_t i=0; i < data.size(); ++i){
         data[i] = static_cast<uint8_t>(i);
@@ -314,7 +314,7 @@ TEST_CASE("FileInputStream satisfies InputStreamConcept") {
     }
 
     SUBCASE("Test name") {
-        std::array<char, NAME_LENGTH> expected_name;
+        FileName expected_name;
         strncpy(expected_name.data(), filename.c_str(), NAME_LENGTH - 1);
         expected_name[NAME_LENGTH - 1] = '\0';
         CHECK(memcmp(stream.name().data(), expected_name.data(), NAME_LENGTH) == 0);

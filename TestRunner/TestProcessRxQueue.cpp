@@ -778,7 +778,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
     constexpr int NUM_ITERATIONS = 13;
     for (int i = 0; i < NUM_ITERATIONS; ++i)
     {
-        fprintf(stderr, "---- Loop iteration %d ----\n", i);
+        // fprintf(stderr, "---- Loop iteration %d ----\n", i);
         HAL_SetTick(HAL_GetTick() + 100);
         transfer1.payload_size = sizeof(payload);
         transfer1.payload = Heap::heapAllocate(nullptr, sizeof(payload));
@@ -799,7 +799,7 @@ TEST_CASE("Full Loop Test with LoopardAdapter and MockTaskFromBuffer")
 
     for (int i = 0; i < NUM_ITERATIONS; ++i)
     {
-        fprintf(stderr, "---- HandleTask iteration %d ----\n", i);
+        // fprintf(stderr, "---- HandleTask iteration %d ----\n", i);
         task1->handleTaskImpl();
         CHECK(task1->getBuffer().size() == NUM_ITERATIONS - i - 1);
 

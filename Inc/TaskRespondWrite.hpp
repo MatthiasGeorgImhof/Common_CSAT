@@ -16,67 +16,159 @@ class TaskRespondWrite : public TaskForServer<CyphalBuffer8, Adapters...>
 {
 public:
     TaskRespondWrite() = delete;
-    TaskRespondWrite(Stream &stream, uint32_t interval, uint32_t tick, std::tuple<Adapters...> &adapters) : 
-    TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters), stream_(stream) {}
 
-    virtual void registerTask(RegistrationManager *manager, std::shared_ptr<Task> task) override;
-    virtual void unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task) override;
-    virtual void handleTaskImpl() override;
+    TaskRespondWrite(Stream& stream,
+                     uint32_t interval,
+                     uint32_t tick,
+                     std::tuple<Adapters...>& adapters)
+        : TaskForServer<CyphalBuffer8, Adapters...>(interval, tick, adapters),
+          stream_(stream),
+          active_write_(false),
+          active_writer_id_(CYPHAL_NODE_ID_UNSET)
+    {
+        active_path_.fill('\0');
+    }
+
+    void registerTask(RegistrationManager* manager, std::shared_ptr<Task> task) override
+    {
+        manager->server(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
+    }
+
+    void unregisterTask(RegistrationManager* manager, std::shared_ptr<Task> task) override
+    {
+        manager->unserver(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
+    }
+
+    void handleTaskImpl() override
+    {
+        if (this->buffer_.is_empty())
+            return;
+
+        auto transfer = this->buffer_.pop();
+        if (transfer->metadata.transfer_kind != CyphalTransferKindRequest)
+            return;
+
+        uavcan_file_Write_Request_1_1 req{};
+        size_t payload_size = transfer->payload_size;
+
+        int8_t des = uavcan_file_Write_Request_1_1_deserialize_(
+            &req,
+            static_cast<const uint8_t*>(transfer->payload),
+            &payload_size);
+
+        uavcan_file_Write_Response_1_1 resp{};
+        resp._error.value = uavcan_file_Error_1_0_OK;
+
+        if (des < 0)
+        {
+            resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+            sendResponse(*transfer, resp);
+            return;
+        }
+
+        // Convert path
+        FileName path{};
+        for (size_t i = 0; i < req.path.path.count && i < NAME_LENGTH - 1; i++)
+            path[i] = static_cast<char>(req.path.path.elements[i]);
+
+        const CyphalNodeID writer = transfer->metadata.remote_node_id;
+
+        //
+        // --- SESSION ADMISSION RULES ---
+        //
+
+        if (req.offset == 0)
+        {
+            // New session request
+            if (!active_write_)
+            {
+                // Accept new session
+                active_write_ = stream_.initialize(path);
+                if (!active_write_)
+                {
+                    resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+                    sendResponse(*transfer, resp);
+                    return;
+                }
+
+                active_writer_id_ = writer;
+                active_path_ = path;
+            }
+            else
+            {
+                // Reject: another writer is active
+                resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+                sendResponse(*transfer, resp);
+                return;
+            }
+        }
+        else
+        {
+            // Continuation chunk
+            if (!active_write_ ||
+                writer != active_writer_id_ ||
+                std::strncmp(active_path_.data(), path.data(), NAME_LENGTH) != 0)
+            {
+                // Reject: invalid continuation
+                resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+                sendResponse(*transfer, resp);
+                return;
+            }
+        }
+
+        //
+        // --- WRITE CHUNK ---
+        //
+        if (active_write_)
+        {
+            bool ok = stream_.output(req.data.value.elements,
+                                     req.data.value.count);
+
+            if (!ok)
+                resp._error.value = uavcan_file_Error_1_0_IO_ERROR;
+        }
+
+        //
+        // --- END OF FILE ---
+        //
+        if (req.data.value.count == 0 && active_write_)
+        {
+            stream_.finalize();
+            active_write_ = false;
+            active_writer_id_ = CYPHAL_NODE_ID_UNSET;
+            active_path_.fill('\0');
+        }
+
+        sendResponse(*transfer, resp);
+    }
 
 private:
-    Stream stream_;
-
-};
-
-template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Heap, Stream, Adapters...>::handleTaskImpl()
-{
-    if (TaskForServer<CyphalBuffer8, Adapters...>::buffer_.is_empty())
+    void sendResponse(const CyphalTransfer& transfer,
+                      const uavcan_file_Write_Response_1_1& resp)
     {
-        log(LOG_LEVEL_TRACE, "TaskRespondWrite: empty buffer\r\n");
-        return;
-    }
+        constexpr size_t PAYLOAD_SIZE =
+            uavcan_file_Write_Response_1_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
 
-    log(LOG_LEVEL_INFO, "TaskRespondWrite: received request\r\n");
-    size_t count = TaskForServer<CyphalBuffer8, Adapters...>::buffer_.size();
-    for (size_t i = 0; i < count; ++i)
-    {
-        std::shared_ptr<CyphalTransfer> transfer = TaskForServer<CyphalBuffer8, Adapters...>::buffer_.pop();
-        if (transfer->metadata.transfer_kind != CyphalTransferKindRequest)
-            continue;
-
-        uavcan_file_Write_Request_1_1 request;
-        size_t payload_size = transfer->payload_size;
-        int8_t deserialization_result = uavcan_file_Write_Request_1_1_deserialize_(&request, static_cast<const uint8_t *>(transfer->payload), &payload_size);
-        if (deserialization_result < 0)
-        {
-            log(LOG_LEVEL_ERROR, "TaskRequestGetInfo: Deserialization Error\r\n");
-        }
-        stream_.output(request.data.value.elements, request.data.value.count);
-
-        uavcan_file_Write_Response_1_1 response;
-        response._error.value = (deserialization_result < 0) ? uavcan_file_Error_1_0_IO_ERROR : uavcan_file_Error_1_0_OK;
-        
-        constexpr size_t PAYLOAD_SIZE = uavcan_file_Write_Response_1_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
         uint8_t payload[PAYLOAD_SIZE];
 
-        TaskForServer<CyphalBuffer8, Adapters...>::publish(PAYLOAD_SIZE, payload, &response,
-                                            reinterpret_cast<int8_t (*)(const void *const, uint8_t *const, size_t *const)>(uavcan_file_Write_Response_1_1_serialize_),
-                                            uavcan_file_Write_1_1_FIXED_PORT_ID_, transfer->metadata.remote_node_id, transfer->metadata.transfer_id);
-        log(LOG_LEVEL_INFO, "TaskRespondWrite: sent response\r\n");
+        TaskForServer<CyphalBuffer8, Adapters...>::publish(
+            PAYLOAD_SIZE,
+            payload,
+            &resp,   // now valid because publish() takes const void*
+            reinterpret_cast<int8_t (*)(const void*, uint8_t*, size_t*)>(
+                uavcan_file_Write_Response_1_1_serialize_),
+            uavcan_file_Write_1_1_FIXED_PORT_ID_,
+            transfer.metadata.remote_node_id,
+            transfer.metadata.transfer_id);
     }
-}
 
-template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Heap, Stream, Adapters...>::registerTask(RegistrationManager *manager, std::shared_ptr<Task> task)
-{
-    manager->server(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
-}
+private:
+    Stream& stream_;
 
-template <typename Heap, OutputStreamConcept Stream, typename... Adapters>
-void TaskRespondWrite<Heap, Stream, Adapters...>::unregisterTask(RegistrationManager *manager, std::shared_ptr<Task> task)
-{
-    manager->unserver(uavcan_file_Write_1_1_FIXED_PORT_ID_, task);
-}
+    // Remote write session state
+    bool active_write_;
+    CyphalNodeID active_writer_id_;
+    FileName active_path_;
+};
 
 #endif // __TASKRESPONDWRITE_HPP_

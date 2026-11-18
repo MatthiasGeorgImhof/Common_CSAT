@@ -108,7 +108,7 @@ protected:
 protected:
     InputStream &stream_;
     size_t total_size_;
-    std::array<char, NAME_LENGTH> name_;
+    FileName name_;
     WriteState write_state_;
     ValuePtr values_;
     size_t num_values_;

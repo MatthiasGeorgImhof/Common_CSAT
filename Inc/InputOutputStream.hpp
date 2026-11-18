@@ -20,10 +20,11 @@
 //
 
 constexpr size_t NAME_LENGTH = 19; // 16 + 1 + 2
+using FileName = std::array<char, NAME_LENGTH>;
 
-std::array<char, NAME_LENGTH> formatValues(uint64_t u64, uint8_t u8)
+FileName formatValues(uint64_t u64, uint8_t u8)
 {
-    std::array<char, NAME_LENGTH> result = {};
+    FileName result = {};
     static constexpr char hex_digits[] = "0123456789abcdef";
 
     for (size_t i = 0; i < 16; ++i)
@@ -47,8 +48,8 @@ std::array<char, NAME_LENGTH> formatValues(uint64_t u64, uint8_t u8)
     return result;
 }
 
-std::array<char, NAME_LENGTH> convertPath(const uint8_t* elements, size_t size) {
-    std::array<char, NAME_LENGTH> destination = {}; // Initialize with nulls
+FileName convertPath(const uint8_t* elements, size_t size) {
+    FileName destination = {}; // Initialize with nulls
     size_t bytes_to_copy = std::min(size, (size_t)NAME_LENGTH - 1);
     std::memcpy(destination.data(), elements, bytes_to_copy);
     destination[bytes_to_copy] = '\0';
@@ -64,7 +65,7 @@ concept InputStreamConcept = requires(Stream &s) {
     { s.is_empty() } -> std::convertible_to<bool>;
     { s.initialize(std::declval<uint8_t *>(), std::declval<size_t &>()) } -> std::convertible_to<bool>;
     { s.size() } -> std::convertible_to<size_t>;
-    { s.name() } -> std::convertible_to<std::array<char, NAME_LENGTH>>;
+    { s.name() } -> std::convertible_to<FileName>;
     { s.finalize() } -> std::convertible_to<bool>;
     { s.getChunk(std::declval<uint8_t *>(), std::declval<size_t &>()) } -> std::convertible_to<bool>;
 };
@@ -107,7 +108,7 @@ public:
         return size_;
     }
 
-    const std::array<char, NAME_LENGTH> name() const
+    const FileName name() const
     {
         return name_;
     }
@@ -141,7 +142,7 @@ public:
 private:
     ImageBufferT &buffer_;
     size_t size_;
-    std::array<char, NAME_LENGTH> name_;
+    FileName name_;
 };
 
 struct MockImageBuffer
@@ -207,7 +208,7 @@ public:
         return file_size_;
     }
 
-    const std::array<char, NAME_LENGTH> name() const
+    const FileName name() const
     {
         return name_;
     }
@@ -257,12 +258,12 @@ private:
     std::ifstream filename_;
     size_t file_size_;
     size_t bytes_read_ = 0;
-    std::array<char, NAME_LENGTH> name_;
+    FileName name_;
     bool initialized_ = false;
 
-    std::array<char, NAME_LENGTH> generateName(const std::string &filename)
+    FileName generateName(const std::string &filename)
     {
-        std::array<char, NAME_LENGTH> name = {};
+        FileName name = {};
         strncpy(name.data(), filename.c_str(), NAME_LENGTH - 1);
         name[NAME_LENGTH - 1] = '\0';
         return name;
@@ -277,7 +278,7 @@ static_assert(InputStreamConcept<FileInputStream>,
 //
 
 template <typename T>
-concept OutputStreamConcept = requires(T &stream, uint8_t *data, size_t size, const std::array<char, NAME_LENGTH> &name) {
+concept OutputStreamConcept = requires(T &stream, uint8_t *data, size_t size, const FileName &name) {
     { stream.initialize(name) } -> std::convertible_to<bool>;
     { stream.finalize() } -> std::convertible_to<bool>;
     { stream.output(data, size) } -> std::convertible_to<bool>;
@@ -287,7 +288,7 @@ class TrivialOutputStream
 {
 public:
     TrivialOutputStream() {}
-    bool initialize(const std::array<char, NAME_LENGTH> & /* name */) { return true; }
+    bool initialize(const FileName & /* name */) { return true; }
     bool finalize() { return true; }
     bool output(uint8_t * /*data*/, size_t /*size*/) { return true; }
 };
@@ -300,7 +301,7 @@ class LoggingOutputStream
 public:
     LoggingOutputStream() = default;
 
-    bool initialize(const std::array<char, NAME_LENGTH> &name)
+    bool initialize(const FileName &name)
     {
 #ifdef LOGGER_ENABLED
         // Convert name to hex for consistent logging
@@ -355,7 +356,7 @@ class OutputStreamToFile
 {
 public:
     OutputStreamToFile() : file_() {} // default constructor initializes the file_ object
-    bool initialize(const std::array<char, NAME_LENGTH> &name)
+    bool initialize(const FileName &name)
     {
         file_.open(name.data(), std::ios::binary);
         return (file_.is_open());

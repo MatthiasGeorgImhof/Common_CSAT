@@ -110,7 +110,7 @@ TEST_CASE("Downstream Leak")
 
         for (uint32_t i = 0; i < 10; i++)
         {
-            std::cout << "START Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
+            // std::cout << "START Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
 
             HAL_SetTick(i * 1000);
 
@@ -139,7 +139,7 @@ TEST_CASE("Downstream Leak")
                 CHECK(allocated == stabilized);
             }
 
-            std::cout << "END   Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
+            // std::cout << "END   Iteration " << i << ": allocated = " << o1heapGetDiagnostics(o1heap).allocated << std::endl;
         }
     }
 

@@ -21,7 +21,6 @@
 
 class RegistrationManager;
 
-//ERROR Task.publish push
 // baseclass
 //
 
@@ -107,12 +106,12 @@ public:
 	virtual ~Publisher() {}
 
 protected:
-	void publishImpl(size_t payload_size, uint8_t *payload, void *data,
+	void publishImpl(size_t payload_size, uint8_t *payload, const void *data,
 					 int8_t (*serialize)(const void *const, uint8_t *const, size_t *const),
 					 CyphalPortID port_id,
 					 CyphalTransferKind transfer_kind,
 					 CyphalNodeID node_id,
-					 CyphalTransferID transfer_id)
+					 CyphalTransferID transfer_id) const
 	{
 		int8_t result = serialize(data, payload, &payload_size);
 		if (result < 0)
@@ -204,8 +203,8 @@ protected:
 		++transfer_id_;
 	}
 
-	void publish(size_t payload_size, uint8_t *payload, void *data,
-				 int8_t (*serialize)(const void *const, uint8_t *const, size_t *const), CyphalPortID port_id)
+	void publish(size_t payload_size, uint8_t *payload, const void *data,
+				 int8_t (*serialize)(const void *const, uint8_t *const, size_t *const), CyphalPortID port_id) const
 	{
 		Publisher<Adapters...>::publishImpl(payload_size, payload, data, serialize, port_id, CyphalTransferKindMessage, CYPHAL_NODE_ID_UNSET, transfer_id_);
 	}
@@ -257,8 +256,8 @@ protected:
 		++transfer_id_;
 	}
 
-	void publish(size_t payload_size, uint8_t *payload, void *data,
-						int8_t (*serialize)(const void *const, uint8_t *const, size_t *const), CyphalPortID port_id)
+	void publish(size_t payload_size, uint8_t *payload, const void *data,
+						int8_t (*serialize)(const void *const, uint8_t *const, size_t *const), CyphalPortID port_id) const
 	{
 		Publisher<Adapters...>::publishImpl(payload_size, payload, data, serialize, port_id, CyphalTransferKindMessage, CYPHAL_NODE_ID_UNSET, transfer_id_);
 	}
@@ -286,9 +285,9 @@ public:
 	}
 
 protected:
-	void publish(size_t payload_size, uint8_t *payload, void *data,
+	void publish(size_t payload_size, uint8_t *payload, const void *data,
 						int8_t (*serialize)(const void *const, uint8_t *const, size_t *const),
-						CyphalPortID port_id, CyphalNodeID node_id, CyphalTransferID transfer_id)
+						CyphalPortID port_id, CyphalNodeID node_id, CyphalTransferID transfer_id) const
 	{
 		Publisher<Adapters...>::publishImpl(payload_size, payload, data, serialize, port_id, CyphalTransferKindResponse, node_id, transfer_id);
 	}
@@ -320,9 +319,9 @@ protected:
 		++transfer_id_;
 	}
 
-	void publish(size_t payload_size, uint8_t *payload, void *data,
+	void publish(size_t payload_size, uint8_t *payload, const void *data,
 						int8_t (*serialize)(const void *const, uint8_t *const, size_t *const),
-						CyphalPortID port_id, CyphalNodeID node_id)
+						CyphalPortID port_id, CyphalNodeID node_id) const
 	{
 		Publisher<Adapters...>::publishImpl(payload_size, payload, data, serialize, port_id, CyphalTransferKindRequest, node_id, transfer_id_);
 	}
