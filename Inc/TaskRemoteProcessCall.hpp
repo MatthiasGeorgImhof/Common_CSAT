@@ -110,6 +110,7 @@ public:
 
             uavcan_node_ExecuteCommand_Response_1_3 data{};
             data.status = static_cast<std::uint8_t>(call(request.command));
+            log(LOG_LEVEL_DEBUG, "TaskRemoteProcessCall %6d: result %4d\r\n", request.command, data.status);
 
             constexpr std::size_t PAYLOAD_SIZE = uavcan_node_ExecuteCommand_Response_1_3_SERIALIZATION_BUFFER_SIZE_BYTES_;
             std::uint8_t payload[PAYLOAD_SIZE]{};
@@ -124,8 +125,7 @@ public:
                 transfer->metadata.remote_node_id,
                 transfer->metadata.transfer_id);
 
-            log(LOG_LEVEL_DEBUG, "TaskRemoteProcessCall::handleTaskImpl: shared counter %4d\r\n",
-                transfer.use_count());
+            log(LOG_LEVEL_DEBUG, "TaskRemoteProcessCall::handleTaskImpl: shared counter %4d\r\n", transfer.use_count());
         }
     }
 
