@@ -8,16 +8,16 @@
 #include "Task.hpp"
 #include "TaskPeriodic.hpp"
 
-template<typename T, typename... Args>
-static void register_task_with_heap(RegistrationManager& rm, Args&&... args)
+template <typename T, typename... Args>
+inline void register_task_with_heap(RegistrationManager& rm, Args&&... args)
 {
     static SafeAllocator<T, LocalHeap> alloc;
     rm.add(alloc_unique_custom<T>(alloc, std::forward<Args>(args)...));
 }
 
-// Bind any object + member function: obj.method()
+// Bind any object + member function returning bool: obj.method()
 template <auto Method, typename T>
-void register_periodic(RegistrationManager& rm, T& obj, uint32_t interval, uint32_t tick)
+inline void register_periodic(RegistrationManager& rm, T& obj, uint32_t interval, uint32_t tick)
 {
     register_task_with_heap<TaskPeriodic>(
         rm,
@@ -27,9 +27,9 @@ void register_periodic(RegistrationManager& rm, T& obj, uint32_t interval, uint3
         tick);
 }
 
-// Overload for free functions: fn()
+// Overload for free functions returning bool: fn()
 template <bool (*Fn)()>
-void register_periodic(RegistrationManager& rm, uint32_t interval, uint32_t tick)
+inline void register_periodic(RegistrationManager& rm, uint32_t interval, uint32_t tick)
 {
     register_task_with_heap<TaskPeriodic>(
         rm,
