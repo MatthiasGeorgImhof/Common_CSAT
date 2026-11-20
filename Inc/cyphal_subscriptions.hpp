@@ -19,6 +19,7 @@
 #include "uavcan/file/Write_1_1.h"
 #include "uavcan/time/Synchronization_1_0.h"
 #include "uavcan/time/GetSynchronizationMasterInfo_0_1.h"
+#include "uavcan/node/ExecuteCommand_1_3.h"
 
 #include "_4111Spyglass.h"
 #include "_4111spyglass/sat/sensor/Magnetometer_0_1.h"
@@ -44,6 +45,7 @@ constexpr static std::array CYPHAL_REQUESTS = {
     CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest},
     CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Request_1_1_EXTENT_BYTES_, CyphalTransferKindRequest},
     CyphalSubscription{uavcan_time_GetSynchronizationMasterInfo_0_1_FIXED_PORT_ID_, uavcan_time_GetSynchronizationMasterInfo_Request_0_1_EXTENT_BYTES_, CyphalTransferKindRequest},
+    CyphalSubscription{uavcan_node_ExecuteCommand_1_3_FIXED_PORT_ID_, uavcan_node_ExecuteCommand_Request_1_3_EXTENT_BYTES_, CyphalTransferKindRequest},
 };
 
 constexpr static std::array CYPHAL_RESPONSES =  {
@@ -53,6 +55,7 @@ constexpr static std::array CYPHAL_RESPONSES =  {
     CyphalSubscription{uavcan_file_Write_1_1_FIXED_PORT_ID_, uavcan_file_Write_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse},
     CyphalSubscription{uavcan_file_Read_1_1_FIXED_PORT_ID_, uavcan_file_Read_Response_1_1_EXTENT_BYTES_, CyphalTransferKindResponse},
     CyphalSubscription{uavcan_time_GetSynchronizationMasterInfo_0_1_FIXED_PORT_ID_, uavcan_time_GetSynchronizationMasterInfo_Response_0_1_EXTENT_BYTES_, CyphalTransferKindResponse},
+    CyphalSubscription{uavcan_node_ExecuteCommand_1_3_FIXED_PORT_ID_, uavcan_node_ExecuteCommand_Response_1_3_EXTENT_BYTES_, CyphalTransferKindResponse},
 };
 
 // Template function for compile-time lookup of boolean values
