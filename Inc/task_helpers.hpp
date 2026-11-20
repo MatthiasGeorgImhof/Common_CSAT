@@ -21,19 +21,19 @@ void register_periodic(RegistrationManager& rm, T& obj, uint32_t interval, uint3
 {
     register_task_with_heap<TaskPeriodic>(
         rm,
-        [](void* ctx) { (static_cast<T*>(ctx)->*Method)(); },
+        [](void* ctx) -> bool { return (static_cast<T*>(ctx)->*Method)(); },
         &obj,
         interval,
         tick);
 }
 
 // Overload for free functions: fn()
-template <void (*Fn)()>
+template <bool (*Fn)()>
 void register_periodic(RegistrationManager& rm, uint32_t interval, uint32_t tick)
 {
     register_task_with_heap<TaskPeriodic>(
         rm,
-        [](void*) { Fn(); },
+        [](void*) -> bool { return Fn(); },
         nullptr,
         interval,
         tick);

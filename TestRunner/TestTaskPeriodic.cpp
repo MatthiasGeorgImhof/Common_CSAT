@@ -27,13 +27,13 @@ struct DummyCounter
     int ticks = 0;
     int step  = 1;
 
-    void tick() { ticks += step; }
+    bool tick() { ticks += step; return ticks; }
 };
 
 int g_free_fn_calls = 0;
-void dummy_free_callback()
+bool dummy_free_callback()
 {
-    ++g_free_fn_calls;
+    return ++g_free_fn_calls;
 }
 } // namespace
 
@@ -45,7 +45,7 @@ TEST_CASE("TaskPeriodic: invokes object callback with ctx")
     DummyCounter counter{0, 3};
 
     TaskPeriodic task(
-        [](void* ctx) { static_cast<DummyCounter*>(ctx)->tick(); },
+        [](void* ctx) -> bool { return static_cast<DummyCounter*>(ctx)->tick(); },
         &counter,
         250,
         100);
@@ -61,11 +61,10 @@ TEST_CASE("TaskPeriodic: invokes free-function callback and safely ignores null 
 {
     g_free_fn_calls = 0;
 
-    TaskPeriodic fn_task([](void*) { dummy_free_callback(); }, nullptr, 100, 0);
+    TaskPeriodic fn_task([](void*) -> bool { return dummy_free_callback(); }, nullptr, 100, 0);
     fn_task.handleTaskImpl();
     fn_task.handleTaskImpl();
     CHECK(g_free_fn_calls == 2);
-
     TaskPeriodic null_task(nullptr, nullptr, 100, 0);
     null_task.handleTaskImpl();       // must not crash
     null_task.handleMessage(nullptr); // no-op
@@ -77,7 +76,7 @@ TEST_CASE("TaskPeriodic: subscribes and unsubscribes as PURE_HANDLER on Registra
     DummyCounter counter{};
 
     auto task = std::make_shared<TaskPeriodic>(
-        [](void* ctx) { static_cast<DummyCounter*>(ctx)->tick(); },
+        [](void* ctx) -> bool { return static_cast<DummyCounter*>(ctx)->tick(); },
         &counter,
         500,
         100);
@@ -119,7 +118,7 @@ TEST_CASE("TaskHelpers: register_periodic binds member methods and free function
 
     // Verify captured references remain intact if invoked via TaskPeriodic directly
     TaskPeriodic direct1(
-        [](void* ctx) { static_cast<DummyCounter*>(ctx)->tick(); },
+        [](void* ctx) -> bool { return static_cast<DummyCounter*>(ctx)->tick(); },
         &counter1,
         250,
         100);

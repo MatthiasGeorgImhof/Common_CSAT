@@ -6,10 +6,12 @@
 #include "Task.hpp"
 #include "RegistrationManager.hpp"
 
+#include "Logger.hpp"
+
 class TaskPeriodic : public Task
 {
 public:
-    using Callback = void (*)(void*);
+    using Callback = bool (*)(void*);
 
     TaskPeriodic() = delete;
     TaskPeriodic(Callback cb, void* ctx, uint32_t interval, uint32_t tick)
@@ -29,8 +31,10 @@ public:
 
     void handleTaskImpl() override
     {
+        bool ok{false};
         if (cb_)
-            cb_(ctx_);
+            ok = cb_(ctx_);
+        log(LOG_LEVEL_INFO, "TaskPeriodic: %p -> %p: %d\r\n", (void*)ctx_, (void*)cb_, ok);
     }
 
 private:
